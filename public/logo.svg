@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64" fill="none" role="img" aria-label="JAR and Associates">
+  <defs>
+    <linearGradient id="jarGrad" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1E6FD9"/>
+      <stop offset="1" stop-color="#0EA5A4"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="8" width="48" height="48" rx="14" fill="url(#jarGrad)"/>
+  <path d="M16 20h16v4H22v16h-6V20z" fill="#fff"/>
+  <path d="M28 28h8c3.3 0 6 2.7 6 6s-2.7 6-6 6h-4v6h-6V28h10z" fill="#fff" opacity="0.95"/>
+  <text x="62" y="28" fill="#0F2B4A" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700">JAR &amp; Associates</text>
+  <text x="62" y="46" fill="#64748B" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="500" letter-spacing="0.08em">BILLING SUITE</text>
+</svg>

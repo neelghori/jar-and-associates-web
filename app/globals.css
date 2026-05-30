@@ -1,26 +1,81 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f0f6fc;
+  --foreground: #0f172a;
+  --surface: #ffffff;
+  --muted: #64748b;
+  --border: #d7e4f0;
+  --brand-50: #eff6ff;
+  --brand-100: #dbeafe;
+  --brand-500: #1e6fd9;
+  --brand-600: #1558b0;
+  --brand-700: #0f2b4a;
+  --brand-800: #0a2540;
+  --accent-400: #2dd4bf;
+  --accent-500: #0ea5a4;
+  --success: #059669;
+  --danger: #dc2626;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-accent-400: var(--accent-400);
+  --color-accent-500: var(--accent-500);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-jakarta);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-jakarta), "Segoe UI", Arial, sans-serif;
+}
+
+input, select, textarea, button {
+  font: inherit;
+}
+
+.auth-grid {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(30, 111, 217, 0.18), transparent 35%),
+    radial-gradient(circle at 80% 0%, rgba(14, 165, 164, 0.16), transparent 30%),
+    linear-gradient(135deg, #0a2540 0%, #0f2b4a 45%, #1558b0 100%);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+}
+
+.dashboard-shell {
+  background:
+    radial-gradient(circle at top right, rgba(30, 111, 217, 0.06), transparent 28%),
+    linear-gradient(180deg, #f7fbff 0%, #eef5fb 100%);
+}
+
+.stat-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.sidebar-link-active {
+  background: linear-gradient(90deg, rgba(30, 111, 217, 0.18) 0%, rgba(14, 165, 164, 0.08) 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.table-head {
+  background: linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
 }
