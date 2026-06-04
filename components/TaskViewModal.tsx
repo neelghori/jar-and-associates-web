@@ -1,9 +1,10 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Modal } from '@/components/Modal';
 import { TaskStatusBadge } from '@/components/TaskStatusBadge';
 import { Button } from '@/components/ui';
+import { ApiError, openTaskAttachment } from '@/lib/api';
 import { formatDisplayDate } from '@/lib/dates';
 import { taskStatusLabel } from '@/lib/taskStatus';
 import type { Task } from '@/lib/types';
@@ -16,11 +17,6 @@ type TaskViewModalProps = {
   overdue?: boolean;
 };
 
-function getUploadBaseUrl() {
-  const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-  return api.replace(/\/api\/?$/, '');
-}
-
 function Detail({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
@@ -31,7 +27,22 @@ function Detail({ label, value }: { label: string; value: ReactNode }) {
 }
 
 export function TaskViewModal({ task, open, onClose, onEdit, overdue }: TaskViewModalProps) {
+  const [attachmentError, setAttachmentError] = useState('');
+  const [openingAttachment, setOpeningAttachment] = useState(false);
+
   if (!task) return null;
+
+  async function handleOpenAttachment() {
+    setAttachmentError('');
+    setOpeningAttachment(true);
+    try {
+      await openTaskAttachment(task!._id);
+    } catch (err) {
+      setAttachmentError(err instanceof ApiError ? err.message : 'Could not open attachment');
+    } finally {
+      setOpeningAttachment(false);
+    }
+  }
 
   const clientName = typeof task.client === 'object' ? task.client.name : '—';
   const serviceName = typeof task.service === 'object' ? task.service.name : '—';
@@ -63,20 +74,24 @@ export function TaskViewModal({ task, open, onClose, onEdit, overdue }: TaskView
             label="Attachment"
             value={
               task.attachment ? (
-                <a
-                  href={`${getUploadBaseUrl()}${task.attachment}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-brand-600 underline"
+                <button
+                  type="button"
+                  onClick={handleOpenAttachment}
+                  disabled={openingAttachment}
+                  className="text-brand-600 underline disabled:opacity-60"
                 >
-                  View file
-                </a>
+                  {openingAttachment ? 'Opening…' : 'View file'}
+                </button>
               ) : (
                 '—'
               )
             }
           />
         </dl>
+
+        {attachmentError && (
+          <p className="text-sm text-red-600">{attachmentError}</p>
+        )}
 
         {task.description && (
           <div className="rounded-xl border border-border bg-brand-50/50 p-4">

@@ -1,3 +1,5 @@
+import type { PlatformBillingOverview } from '@/lib/platformBilling';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export class ApiError extends Error {
@@ -102,6 +104,9 @@ export const api = {
   deleteUser: (id: string) =>
     request<{ message: string }>(`/users/${id}`, { method: 'DELETE' }),
 
+  getPlatformBillingOverview: () =>
+    request<PlatformBillingOverview>('/platform/billing-overview'),
+
   getCompanies: () => request<{ companies: unknown[] }>('/companies'),
   getCompany: (id: string) => request<{ company: unknown }>(`/companies/${id}`),
   createCompany: (body: unknown) =>
@@ -175,11 +180,23 @@ export const api = {
   deleteInvoice: (id: string) =>
     request<{ message: string }>(`/invoices/${id}`, { method: 'DELETE' }),
 
-  downloadInvoicePdf: (id: string) => {
-    const token = getToken();
-    return `${API_URL}/invoices/${id}/pdf?token=${token}`;
-  },
+  taskAttachmentUrl: (id: string) => `${API_URL}/tasks/${id}/attachment`,
 };
+
+export async function openTaskAttachment(taskId: string) {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/tasks/${taskId}/attachment`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new ApiError((data as { message?: string }).message || 'Failed to open attachment', res.status);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank', 'noopener,noreferrer');
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
 
 export function downloadInvoice(id: string, filename: string) {
   const token = getToken();

@@ -7,7 +7,9 @@ import { useAuth } from '@/lib/auth-context';
 import type { InvoicePaymentSummary } from '@/lib/invoicePayment';
 import { hasCompanyWorkspace, isPlatformAdmin } from '@/lib/roles';
 import { PaymentCharts } from '@/components/PaymentCharts';
-import { PageHeader, StatCard } from '@/components/ui';
+import { PlatformBillingDashboard } from '@/components/PlatformBillingDashboard';
+import { Alert, PageHeader, StatCard } from '@/components/ui';
+import type { PlatformBillingOverview } from '@/lib/platformBilling';
 import { TopBar } from '@/components/Sidebar';
 import type { Client, Company, Invoice, Task, User } from '@/lib/types';
 
@@ -15,11 +17,18 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [stats, setStats] = useState({ clients: 0, tasks: 0, invoices: 0, users: 0, companies: 0 });
   const [paymentSummary, setPaymentSummary] = useState<InvoicePaymentSummary | null>(null);
+  const [platformBilling, setPlatformBilling] = useState<PlatformBillingOverview | null>(null);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     async function load() {
+      setLoadError('');
       if (isPlatformAdmin(user)) {
-        const [companiesRes, usersRes] = await Promise.all([api.getCompanies(), api.getUsers()]);
+        const [companiesRes, usersRes, billingRes] = await Promise.all([
+          api.getCompanies(),
+          api.getUsers(),
+          api.getPlatformBillingOverview(),
+        ]);
         setStats({
           companies: (companiesRes.companies as Company[]).length,
           users: (usersRes.users as User[]).length,
@@ -27,6 +36,7 @@ export default function DashboardPage() {
           tasks: 0,
           invoices: 0,
         });
+        setPlatformBilling(billingRes);
         setPaymentSummary(null);
         return;
       }
@@ -56,7 +66,10 @@ export default function DashboardPage() {
       setPaymentSummary(summaryRes);
     }
 
-    load().catch(console.error);
+    load().catch((err) => {
+      console.error(err);
+      setLoadError('Failed to load dashboard data');
+    });
   }, [user?.role, user?.company]);
 
   const platformCards = [
@@ -80,7 +93,7 @@ export default function DashboardPage() {
         title="Dashboard"
         subtitle={
           isPlatformAdmin(user)
-            ? 'Create companies, assign superadmins from Users, and manage the platform workspace.'
+            ? 'Review pending collections and outstanding invoices across all companies.'
             : 'Track clients, tasks, billing, and payment collection from one place.'
         }
         hideLogo
@@ -91,6 +104,16 @@ export default function DashboardPage() {
           <StatCard key={card.label} label={card.label} value={card.value} icon={card.icon} />
         ))}
       </div>
+
+      {loadError && (
+        <div className="mt-6">
+          <Alert message={loadError} />
+        </div>
+      )}
+
+      {platformBilling && isPlatformAdmin(user) && (
+        <PlatformBillingDashboard overview={platformBilling} />
+      )}
 
       {paymentSummary && !isPlatformAdmin(user) && (
         <div className="mt-8">

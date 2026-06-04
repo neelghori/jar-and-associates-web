@@ -69,6 +69,7 @@ export default function InvoicesPage() {
   const [lineSacCodes, setLineSacCodes] = useState<LineSacCodes>({});
   const [defaultSac, setDefaultSac] = useState('');
   const [invoiceDate, setInvoiceDate] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -105,8 +106,12 @@ export default function InvoicesPage() {
       setLineSacCodes({});
       return;
     }
-    api.getTasks({ clientId, invoiceable: 'true' })
-      .then((res) => setTasks(res.tasks as Task[]))
+    api
+      .getTasks({ clientId, invoiceable: 'true' })
+      .then((res) => {
+        const available = (res.tasks as Task[]).filter((t) => !t.isInvoiced);
+        setTasks(available);
+      })
       .catch(console.error);
     setSelectedTasks([]);
     setLineAmounts({});
@@ -221,6 +226,10 @@ export default function InvoicesPage() {
       setError('Select a client and at least one completed task');
       return;
     }
+    if (!invoiceNumber.trim()) {
+      setError('Enter an invoice number');
+      return;
+    }
 
     const lineItems = selectedTasks.map((taskId) => {
       const amount = parseFloat(lineAmounts[taskId] || '');
@@ -241,6 +250,7 @@ export default function InvoicesPage() {
     try {
       await api.createInvoice({
         clientId,
+        invoiceNumber: invoiceNumber.trim(),
         lineItems,
         invoiceDate: invoiceDate || undefined,
       });
@@ -250,7 +260,10 @@ export default function InvoicesPage() {
       setLineSacCodes({});
       setClientId('');
       setInvoiceDate('');
+      setInvoiceNumber('');
       setShowForm(false);
+      setTasks([]);
+      setSelectedTasks([]);
       await loadInvoices();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to generate invoice');
@@ -483,14 +496,25 @@ export default function InvoicesPage() {
           open={showForm}
           onClose={() => setShowForm(false)}
           title="Generate Invoice"
-          description="Select completed tasks and enter SAC code and amount for each line (SAC defaults from company profile when set)."
+          description="Enter the invoice number, select completed tasks, and enter SAC code and amount for each line."
           size="lg"
         >
           {error && <div className="mb-4"><Alert message={error} /></div>}
           <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              label="Invoice number"
+              value={invoiceNumber}
+              onChange={(e) => setInvoiceNumber(e.target.value)}
+              placeholder="e.g. 24-25/001"
+              required
+            />
             <Select label="Client" value={clientId} onChange={(e) => setClientId(e.target.value)} required>
               <option value="">Select client</option>
-              {clients.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
+              {clients.map((c) => (
+                <option key={c._id} value={c._id}>
+                  {c.clientId ? `${c.clientId} — ${c.name}` : c.name}
+                </option>
+              ))}
             </Select>
             <Input label="Invoice Date (optional)" type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} />
 
@@ -546,7 +570,6 @@ export default function InvoicesPage() {
 
             <div className="rounded-xl border border-border bg-brand-50 px-3 py-2 text-sm">
               Invoice total: <strong className="text-brand-800">₹ {total.toFixed(2)}</strong>
-              <span className="mt-1 block text-xs text-muted">Next number is assigned automatically (e.g. INC001).</span>
             </div>
 
             <div className="flex gap-3 pt-2">

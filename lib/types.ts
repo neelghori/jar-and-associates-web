@@ -34,14 +34,15 @@ export interface Company {
 export interface Client {
   _id: string;
   company: string;
+  clientId?: string;
   name: string;
   address1: string;
   address2?: string;
   gst?: string;
   pan?: string;
   tan?: string;
-  mobile: string;
-  email: string;
+  mobile?: string;
+  email?: string;
   state?: string;
   stateCode?: string;
   placeOfSupply?: string;

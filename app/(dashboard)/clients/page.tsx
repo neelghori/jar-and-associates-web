@@ -31,8 +31,8 @@ function clientToForm(client: Client) {
     gst: client.gst || '',
     pan: client.pan || '',
     tan: client.tan || '',
-    mobile: client.mobile,
-    email: client.email,
+    mobile: client.mobile || '',
+    email: client.email || '',
     state: client.state || '',
     stateCode: client.stateCode || '',
     placeOfSupply: client.placeOfSupply || '',
@@ -61,7 +61,7 @@ export default function ClientsPage() {
   const filteredClients = useMemo(
     () =>
       filterBySearch(clients, search, (c) => [
-        c.name, c.mobile, c.email, c.gst, c.pan, c.tan, c.address1, c.address2, c.state,
+        c.clientId, c.name, c.mobile, c.email, c.gst, c.pan, c.tan, c.address1, c.address2, c.state,
       ]),
     [clients, search]
   );
@@ -93,6 +93,10 @@ export default function ClientsPage() {
     const taxError = validateOptionalTaxIds(form);
     if (taxError) {
       setError(taxError);
+      return;
+    }
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      setError('Enter a valid email or leave it blank');
       return;
     }
     setSuccess('');
@@ -153,23 +157,24 @@ export default function ClientsPage() {
           <TableToolbar
             search={search}
             onSearchChange={setSearch}
-            placeholder="Search by name, email, mobile, GST, PAN..."
+            placeholder="Search by client ID, name, email, mobile, GST, PAN..."
             total={clients.length}
             filtered={filteredClients.length}
           />
 
-          <Table headers={['Name', 'Mobile', 'Email', 'GST', 'PAN', 'Actions']}>
+          <Table headers={['Client ID', 'Name', 'Mobile', 'Email', 'GST', 'PAN', 'Actions']}>
             {filteredClients.length === 0 ? (
               <EmptyTableRow
-                colSpan={6}
+                colSpan={7}
                 message={search ? 'No clients match your search.' : 'No clients yet. Click Add Client to create one.'}
               />
             ) : (
               filteredClients.map((client) => (
                 <tr key={client._id} className="hover:bg-brand-50/50">
+                  <td className="px-4 py-3 font-mono text-sm text-brand-700">{client.clientId || '—'}</td>
                   <td className="px-4 py-3 font-medium text-brand-800">{client.name}</td>
-                  <td className="px-4 py-3">{client.mobile}</td>
-                  <td className="px-4 py-3">{client.email}</td>
+                  <td className="px-4 py-3">{client.mobile || '—'}</td>
+                  <td className="px-4 py-3">{client.email || '—'}</td>
                   <td className="px-4 py-3">{client.gst || '—'}</td>
                   <td className="px-4 py-3">{client.pan || '—'}</td>
                   <td className="px-4 py-3">
@@ -193,13 +198,16 @@ export default function ClientsPage() {
         >
           {error && <div className="mb-4"><Alert message={error} /></div>}
           <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
+            {editing?.clientId && (
+              <Input label="Client ID" value={editing.clientId} disabled />
+            )}
             <Input label="Client Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-            <Input label="Mobile" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} required />
+            <Input label="Mobile (optional)" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} />
             <div className="sm:col-span-2">
               <Input label="Address Line 1" value={form.address1} onChange={(e) => setForm({ ...form, address1: e.target.value })} required />
               <Input label="Address Line 2 (optional)" value={form.address2} onChange={(e) => setForm({ ...form, address2: e.target.value })} />
             </div>
-            <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+            <Input label="Email (optional)" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             <Input
               label="GSTIN (optional)"
               value={form.gst}
