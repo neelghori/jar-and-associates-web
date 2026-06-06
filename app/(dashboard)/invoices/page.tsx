@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { FileText, IndianRupee, Plus } from 'lucide-react';
+import { Check, FileText, IndianRupee, Pencil, Plus, Trash2 } from 'lucide-react';
 import { api, ApiError, downloadInvoice } from '@/lib/api';
 import { CompanyRequired } from '@/components/CompanyRequired';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -19,7 +19,23 @@ import {
   type InvoicePaymentSummary,
 } from '@/lib/invoicePayment';
 import { Alert, Button, Card, Input, PageHeader, Select, Table } from '@/components/ui';
-import type { Client, Company, Invoice, Task } from '@/lib/types';
+import type { Client, Company, Invoice, PaymentMilestone, SubCompany, Task } from '@/lib/types';
+
+type MilestoneForm = {
+  label: string;
+  amount: string;
+  receivedDate: string;
+  note: string;
+};
+
+function emptyMilestoneForm(index: number): MilestoneForm {
+  return {
+    label: `Milestone ${index}`,
+    amount: '',
+    receivedDate: new Date().toISOString().slice(0, 10),
+    note: '',
+  };
+}
 
 type LineAmounts = Record<string, string>;
 type LineSacCodes = Record<string, string>;
@@ -53,6 +69,7 @@ function toDateInput(iso: string) {
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [subCompanies, setSubCompanies] = useState<SubCompany[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -64,6 +81,7 @@ export default function InvoicesPage() {
   const [deleteTarget, setDeleteTarget] = useState<Invoice | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [clientId, setClientId] = useState('');
+  const [subCompanyId, setSubCompanyId] = useState('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [lineAmounts, setLineAmounts] = useState<LineAmounts>({});
   const [lineSacCodes, setLineSacCodes] = useState<LineSacCodes>({});
@@ -75,7 +93,10 @@ export default function InvoicesPage() {
   const [loading, setLoading] = useState(false);
   const [paymentSummary, setPaymentSummary] = useState<InvoicePaymentSummary | null>(null);
   const [paymentTarget, setPaymentTarget] = useState<Invoice | null>(null);
-  const [receiveAmount, setReceiveAmount] = useState('');
+  const [paymentMilestones, setPaymentMilestones] = useState<PaymentMilestone[]>([]);
+  const [milestoneForm, setMilestoneForm] = useState<MilestoneForm>(emptyMilestoneForm(1));
+  const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
+  const [paymentTab, setPaymentTab] = useState<'record' | 'history'>('record');
   const [paymentLoading, setPaymentLoading] = useState(false);
 
   async function loadInvoices() {
@@ -95,8 +116,17 @@ export default function InvoicesPage() {
         if (list[0]?.sacCode) setDefaultSac(list[0].sacCode);
       })
       .catch(console.error);
+    api.getSubCompanies()
+      .then((res) => setSubCompanies(res.subCompanies as SubCompany[]))
+      .catch(console.error);
     loadInvoices().catch(console.error);
   }, []);
+
+  useEffect(() => {
+    if (!subCompanyId) return;
+    const selected = subCompanies.find((sc) => sc.id === subCompanyId);
+    if (selected?.sacCode) setDefaultSac(selected.sacCode);
+  }, [subCompanyId, subCompanies]);
 
   useEffect(() => {
     if (!clientId) {
@@ -123,6 +153,7 @@ export default function InvoicesPage() {
       filterBySearch(invoices, search, (inv) => [
         inv.invoiceNumber,
         typeof inv.client === 'object' ? inv.client.name : '',
+        typeof inv.subCompany === 'object' ? inv.subCompany.name : '',
         inv.total,
         new Date(inv.invoiceDate).toLocaleDateString('en-IN'),
       ]),
@@ -230,6 +261,10 @@ export default function InvoicesPage() {
       setError('Enter an invoice number');
       return;
     }
+    if (subCompanies.length > 0 && !subCompanyId) {
+      setError('Select a company for this invoice');
+      return;
+    }
 
     const lineItems = selectedTasks.map((taskId) => {
       const amount = parseFloat(lineAmounts[taskId] || '');
@@ -250,6 +285,7 @@ export default function InvoicesPage() {
     try {
       await api.createInvoice({
         clientId,
+        subCompanyId: subCompanyId || undefined,
         invoiceNumber: invoiceNumber.trim(),
         lineItems,
         invoiceDate: invoiceDate || undefined,
@@ -259,6 +295,7 @@ export default function InvoicesPage() {
       setLineAmounts({});
       setLineSacCodes({});
       setClientId('');
+      setSubCompanyId('');
       setInvoiceDate('');
       setInvoiceNumber('');
       setShowForm(false);
@@ -335,53 +372,135 @@ export default function InvoicesPage() {
   const editingClientName =
     editing && typeof editing.client === 'object' ? editing.client.name : '—';
 
-  function openPayment(invoice: Invoice) {
+  function applyPaymentInvoice(invoice: Invoice) {
     setPaymentTarget(invoice);
-    setReceiveAmount(String(getInvoicePending(invoice) || ''));
+    const milestones = invoice.paymentMilestones ?? [];
+    setPaymentMilestones(milestones);
+    setEditingMilestoneId(null);
+    setMilestoneForm(emptyMilestoneForm(milestones.length + 1));
+    setPaymentTab(milestones.length > 0 ? 'history' : 'record');
+  }
+
+  async function openPayment(invoice: Invoice) {
+    setError('');
+    setPaymentLoading(true);
+    try {
+      const res = await api.getInvoice(invoice._id);
+      applyPaymentInvoice(res.invoice as Invoice);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to load payment details');
+    } finally {
+      setPaymentLoading(false);
+    }
+  }
+
+  function closePaymentModal() {
+    setPaymentTarget(null);
+    setPaymentMilestones([]);
+    setEditingMilestoneId(null);
+    setMilestoneForm(emptyMilestoneForm(1));
+    setPaymentTab('record');
     setError('');
   }
 
-  async function handleRecordPayment(e: FormEvent) {
+  const paymentReceived = paymentMilestones.reduce((sum, m) => sum + m.amount, 0);
+  const paymentPending = paymentTarget
+    ? Math.max(0, paymentTarget.total - paymentReceived)
+    : 0;
+  const paymentProgress = paymentTarget?.total
+    ? Math.min(100, (paymentReceived / paymentTarget.total) * 100)
+    : 0;
+
+  function startEditMilestone(milestone: PaymentMilestone) {
+    setPaymentTab('record');
+    setEditingMilestoneId(milestone._id);
+    setMilestoneForm({
+      label: milestone.label,
+      amount: String(milestone.amount),
+      receivedDate: toDateInput(milestone.receivedDate),
+      note: milestone.note ?? '',
+    });
+    setError('');
+  }
+
+  function cancelMilestoneEdit() {
+    setEditingMilestoneId(null);
+    setMilestoneForm(emptyMilestoneForm(paymentMilestones.length + 1));
+    setError('');
+  }
+
+  async function refreshPaymentState(invoice: Invoice) {
+    applyPaymentInvoice(invoice);
+    await loadInvoices();
+  }
+
+  async function handleMilestoneSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!paymentTarget) return;
+
+    const amount = parseFloat(milestoneForm.amount || '');
+    if (!milestoneForm.label.trim()) {
+      setError('Enter a milestone label');
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError('Enter a valid amount greater than zero');
+      return;
+    }
+    if (!milestoneForm.receivedDate) {
+      setError('Select a received date');
+      return;
+    }
+
+    const payload = {
+      label: milestoneForm.label.trim(),
+      amount,
+      receivedDate: milestoneForm.receivedDate,
+      note: milestoneForm.note.trim() || undefined,
+    };
+
+    setPaymentLoading(true);
+    setError('');
+    try {
+      const res = editingMilestoneId
+        ? await api.updatePaymentMilestone(paymentTarget._id, editingMilestoneId, payload)
+        : await api.addPaymentMilestone(paymentTarget._id, payload);
+      setSuccess(editingMilestoneId ? 'Milestone updated' : 'Milestone recorded');
+      setPaymentTab('history');
+      await refreshPaymentState(res.invoice as Invoice);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to save milestone');
+    } finally {
+      setPaymentLoading(false);
+    }
+  }
+
+  async function handleDeleteMilestone(milestoneId: string) {
     if (!paymentTarget) return;
     setPaymentLoading(true);
     setError('');
     try {
-      const pending = getInvoicePending(paymentTarget);
-      const amount = parseFloat(receiveAmount || '0');
-      if (!Number.isFinite(amount) || amount < 0) {
-        setError('Enter a valid amount');
-        setPaymentLoading(false);
-        return;
-      }
-      if (amount > pending + 0.001) {
-        setError(`Amount cannot exceed pending ${formatInr(pending)}`);
-        setPaymentLoading(false);
-        return;
-      }
-      await api.recordInvoicePayment(paymentTarget._id, { amount });
-      setSuccess('Payment recorded successfully');
-      setPaymentTarget(null);
-      setReceiveAmount('');
-      await loadInvoices();
+      const res = await api.deletePaymentMilestone(paymentTarget._id, milestoneId);
+      setSuccess('Milestone removed');
+      if (editingMilestoneId === milestoneId) cancelMilestoneEdit();
+      await refreshPaymentState(res.invoice as Invoice);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to record payment');
+      setError(err instanceof ApiError ? err.message : 'Failed to delete milestone');
     } finally {
       setPaymentLoading(false);
     }
   }
 
   async function handleMarkFullyPaid() {
-    if (!paymentTarget) return;
+    if (!paymentTarget || paymentPending <= 0) return;
     setPaymentLoading(true);
     setError('');
     try {
-      await api.recordInvoicePayment(paymentTarget._id, { markFullyPaid: true });
-      setSuccess('Invoice marked as fully paid');
-      setPaymentTarget(null);
-      await loadInvoices();
+      const res = await api.recordInvoicePayment(paymentTarget._id, { markFullyPaid: true });
+      setSuccess('Full payment milestone added');
+      await refreshPaymentState(res.invoice as Invoice);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to update payment');
+      setError(err instanceof ApiError ? err.message : 'Failed to mark fully paid');
     } finally {
       setPaymentLoading(false);
     }
@@ -420,6 +539,7 @@ export default function InvoicesPage() {
           <Table
             headers={[
               'Invoice No.',
+              'Company',
               'Client',
               'Date',
               'Total',
@@ -431,13 +551,16 @@ export default function InvoicesPage() {
           >
             {filteredInvoices.length === 0 ? (
               <EmptyTableRow
-                colSpan={8}
+                colSpan={9}
                 message={search ? 'No invoices match your search.' : 'No invoices yet. Click Generate Invoice to create one.'}
               />
             ) : (
               filteredInvoices.map((invoice) => (
                 <tr key={invoice._id} className="hover:bg-brand-50/50">
                   <td className="px-4 py-3 font-medium text-brand-800">{invoice.invoiceNumber}</td>
+                  <td className="px-4 py-3">
+                    {typeof invoice.subCompany === 'object' ? invoice.subCompany.name : '—'}
+                  </td>
                   <td className="px-4 py-3">{typeof invoice.client === 'object' ? invoice.client.name : '—'}</td>
                   <td className="px-4 py-3">{new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}</td>
                   <td className="px-4 py-3">
@@ -460,16 +583,16 @@ export default function InvoicesPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex min-w-[200px] flex-col gap-1.5">
-                      {getInvoicePending(invoice) > 0 && (
-                        <Button
-                          variant="ghost"
-                          className="h-8 w-full justify-start px-2 text-xs"
-                          onClick={() => openPayment(invoice)}
-                        >
-                          <IndianRupee className="h-3.5 w-3.5" />
-                          Record payment
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        className="h-8 w-full justify-start px-2 text-xs"
+                        onClick={() => openPayment(invoice)}
+                      >
+                        <IndianRupee className="h-3.5 w-3.5" />
+                        {(invoice.paymentMilestones?.length ?? 0) > 0 || (invoice.paidAmount ?? 0) > 0
+                          ? 'Payment milestones'
+                          : 'Record payment'}
+                      </Button>
                       <Button
                         variant="secondary"
                         className="h-8 w-full justify-start px-2 text-xs"
@@ -496,7 +619,7 @@ export default function InvoicesPage() {
           open={showForm}
           onClose={() => setShowForm(false)}
           title="Generate Invoice"
-          description="Enter the invoice number, select completed tasks, and enter SAC code and amount for each line."
+          description="Select the company, enter the invoice number, pick completed tasks, and enter SAC code and amount for each line."
           size="lg"
         >
           {error && <div className="mb-4"><Alert message={error} /></div>}
@@ -508,6 +631,25 @@ export default function InvoicesPage() {
               placeholder="e.g. 24-25/001"
               required
             />
+            {subCompanies.length > 0 ? (
+              <Select
+                label="Company"
+                value={subCompanyId}
+                onChange={(e) => setSubCompanyId(e.target.value)}
+                required
+              >
+                <option value="">Select company</option>
+                {subCompanies.map((sc) => (
+                  <option key={sc.id} value={sc.id}>
+                    {sc.name}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                No companies yet. Add them under Companies to bill under a specific firm.
+              </div>
+            )}
             <Select label="Client" value={clientId} onChange={(e) => setClientId(e.target.value)} required>
               <option value="">Select client</option>
               {clients.map((c) => (
@@ -594,6 +736,15 @@ export default function InvoicesPage() {
               <Input label="Invoice number" value={editing?.invoiceNumber ?? ''} disabled />
               <Input label="Client" value={editingClientName} disabled />
               <Input
+                label="Company"
+                value={
+                  editing && typeof editing.subCompany === 'object'
+                    ? editing.subCompany.name
+                    : '—'
+                }
+                disabled
+              />
+              <Input
                 label="Invoice date"
                 type="date"
                 value={editInvoiceDate}
@@ -673,57 +824,213 @@ export default function InvoicesPage() {
 
         <Modal
           open={!!paymentTarget}
-          onClose={() => setPaymentTarget(null)}
-          title="Record payment"
+          onClose={closePaymentModal}
+          title="Payment milestones"
           description={
             paymentTarget
-              ? `Invoice ${paymentTarget.invoiceNumber} — pending ${formatInr(getInvoicePending(paymentTarget))}`
+              ? `Invoice ${paymentTarget.invoiceNumber} — mark each payment received as a milestone`
               : ''
           }
+          size="lg"
         >
           {error && <div className="mb-4"><Alert message={error} /></div>}
-          <form onSubmit={handleRecordPayment} className="space-y-4">
-            <div className="space-y-2 rounded-xl border border-border bg-brand-50 p-3 text-sm">
+          <div className="space-y-5">
+            <div className="space-y-3 rounded-xl border border-border bg-brand-50 p-4 text-sm">
               <div className="flex items-center justify-between gap-4">
-                <span className="text-muted">Total</span>
+                <span className="text-muted">Invoice total</span>
                 {paymentTarget && <MoneyAmount amount={paymentTarget.total} />}
               </div>
               <div className="flex items-center justify-between gap-4">
                 <span className="text-muted">Received</span>
-                {paymentTarget && <MoneyAmount amount={paymentTarget.paidAmount ?? 0} variant="received" />}
+                <MoneyAmount amount={paymentReceived} variant="received" />
               </div>
               <div className="flex items-center justify-between gap-4">
                 <span className="text-muted">Pending</span>
-                {paymentTarget && <MoneyAmount amount={getInvoicePending(paymentTarget)} variant="pending" />}
+                <MoneyAmount amount={paymentPending} variant="pending" />
               </div>
+              <div className="h-2 overflow-hidden rounded-full bg-white">
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-all"
+                  style={{ width: `${paymentProgress}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted">{paymentProgress.toFixed(0)}% collected</p>
             </div>
-            <Input
-              label="Amount received now (₹)"
-              type="number"
-              min="0"
-              step="0.01"
-              value={receiveAmount}
-              onChange={(e) => setReceiveAmount(e.target.value)}
-              required
-            />
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button type="button" variant="secondary" className="flex-1" onClick={() => setPaymentTarget(null)}>
-                Cancel
-              </Button>
-              <Button
+
+            <div className="flex gap-1 rounded-xl border border-border bg-brand-50/60 p-1">
+              <button
                 type="button"
-                variant="ghost"
-                className="flex-1"
-                disabled={paymentLoading || !paymentTarget}
-                onClick={handleMarkFullyPaid}
+                onClick={() => setPaymentTab('record')}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  paymentTab === 'record'
+                    ? 'bg-white text-brand-800 shadow-sm'
+                    : 'text-muted hover:text-brand-800'
+                }`}
               >
-                Mark fully paid
-              </Button>
-              <Button type="submit" className="flex-1" disabled={paymentLoading}>
-                {paymentLoading ? 'Saving...' : 'Record payment'}
-              </Button>
+                Record payment
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentTab('history')}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  paymentTab === 'history'
+                    ? 'bg-white text-brand-800 shadow-sm'
+                    : 'text-muted hover:text-brand-800'
+                }`}
+              >
+                Recorded
+                {paymentMilestones.length > 0 && (
+                  <span className="ml-2 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-emerald-100 px-1.5 text-xs font-semibold text-emerald-700">
+                    {paymentMilestones.length}
+                  </span>
+                )}
+              </button>
             </div>
-          </form>
+
+            {paymentTab === 'history' && (
+              <div>
+                <p className="mb-3 text-sm font-medium text-brand-800">Recorded milestones</p>
+                {paymentMilestones.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
+                    <p>No milestones recorded yet.</p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="mt-3"
+                      onClick={() => setPaymentTab('record')}
+                    >
+                      Record first payment
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="max-h-80 space-y-0 overflow-y-auto pr-1">
+                    {paymentMilestones.map((milestone, index) => (
+                      <div key={milestone._id} className="flex gap-3">
+                        <div className="flex flex-col items-center">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-emerald-500 bg-emerald-50 text-sm font-semibold text-emerald-700">
+                            <Check className="h-4 w-4" />
+                          </div>
+                          {index < paymentMilestones.length - 1 && (
+                            <div className="my-1 min-h-[24px] w-0.5 flex-1 bg-emerald-200" />
+                          )}
+                        </div>
+                        <div className="mb-3 flex-1 rounded-xl border border-border bg-white p-3">
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div>
+                              <p className="font-medium text-brand-800">
+                                {index + 1}. {milestone.label}
+                              </p>
+                              <p className="mt-1 text-xs text-muted">
+                                {new Date(milestone.receivedDate).toLocaleDateString('en-IN')}
+                                {milestone.note ? ` · ${milestone.note}` : ''}
+                              </p>
+                            </div>
+                            <MoneyAmount amount={milestone.amount} variant="received" />
+                          </div>
+                          <div className="mt-3 flex gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="h-8 px-2 text-xs"
+                              onClick={() => startEditMilestone(milestone)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              Edit
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="h-8 px-2 text-xs text-danger"
+                              onClick={() => handleDeleteMilestone(milestone._id)}
+                              disabled={paymentLoading}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Delete
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2 pt-2">
+                  <Button type="button" variant="secondary" className="flex-1" onClick={closePaymentModal}>
+                    Close
+                  </Button>
+                  <Button type="button" className="flex-1" onClick={() => setPaymentTab('record')}>
+                    Record payment
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {paymentTab === 'record' && (
+            <form onSubmit={handleMilestoneSubmit} className="space-y-4 rounded-xl border border-border p-4">
+              <p className="text-sm font-medium text-brand-800">
+                {editingMilestoneId ? 'Edit milestone' : 'Add milestone'}
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input
+                  label="Milestone label"
+                  value={milestoneForm.label}
+                  onChange={(e) => setMilestoneForm({ ...milestoneForm, label: e.target.value })}
+                  placeholder="e.g. Advance, Part 1"
+                  required
+                />
+                <Input
+                  label="Amount received (₹)"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={milestoneForm.amount}
+                  onChange={(e) => setMilestoneForm({ ...milestoneForm, amount: e.target.value })}
+                  required
+                />
+                <Input
+                  label="Received date"
+                  type="date"
+                  value={milestoneForm.receivedDate}
+                  onChange={(e) => setMilestoneForm({ ...milestoneForm, receivedDate: e.target.value })}
+                  required
+                />
+                <Input
+                  label="Note (optional)"
+                  value={milestoneForm.note}
+                  onChange={(e) => setMilestoneForm({ ...milestoneForm, note: e.target.value })}
+                  placeholder="UPI, cheque, etc."
+                />
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button type="button" variant="secondary" className="flex-1" onClick={closePaymentModal}>
+                  Close
+                </Button>
+                {editingMilestoneId && (
+                  <Button type="button" variant="ghost" className="flex-1" onClick={cancelMilestoneEdit}>
+                    Cancel edit
+                  </Button>
+                )}
+                {paymentPending > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="flex-1"
+                    disabled={paymentLoading}
+                    onClick={handleMarkFullyPaid}
+                  >
+                    Mark fully paid
+                  </Button>
+                )}
+                <Button type="submit" className="flex-1" disabled={paymentLoading}>
+                  {paymentLoading
+                    ? 'Saving...'
+                    : editingMilestoneId
+                      ? 'Update milestone'
+                      : 'Add milestone'}
+                </Button>
+              </div>
+            </form>
+            )}
+          </div>
         </Modal>
 
         <ConfirmDialog

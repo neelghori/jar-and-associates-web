@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 type LogoProps = {
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
-  /** White padded frame — use on navy sidebar / auth panel */
+  /** Light padded frame on dark sidebar / auth panel */
   onDark?: boolean;
   href?: string;
   className?: string;
@@ -11,12 +11,48 @@ type LogoProps = {
 };
 
 const heights = {
-  xs: 32,
-  sm: 40,
-  md: 48,
-  lg: 56,
-  xl: 72,
+  xs: 28,
+  sm: 36,
+  md: 44,
+  lg: 52,
+  xl: 64,
 } as const;
+
+const textSizes = {
+  xs: 'text-lg',
+  sm: 'text-xl',
+  md: 'text-2xl',
+  lg: 'text-3xl',
+  xl: 'text-4xl',
+} as const;
+
+/** Jar icon aspect ratio (135 × 158) */
+const ICON_ASPECT = 135 / 158;
+
+function JarIcon({
+  height,
+  priority = false,
+  className = '',
+}: {
+  height: number;
+  priority?: boolean;
+  className?: string;
+}) {
+  const width = Math.round(height * ICON_ASPECT);
+
+  return (
+    <Image
+      src="/jar-icon.png"
+      alt=""
+      width={width}
+      height={height}
+      priority={priority}
+      aria-hidden
+      className={`shrink-0 object-contain ${className}`}
+      style={{ height, width }}
+    />
+  );
+}
 
 export function Logo({
   size = 'md',
@@ -26,30 +62,35 @@ export function Logo({
   priority = false,
 }: LogoProps) {
   const height = heights[size];
+  const showWordmark = size !== 'xs';
 
-  const image = (
-    <Image
-      src="/logo.png"
-      alt="JAR & Associates — Billing Suite"
-      width={height * 2.2}
-      height={height}
-      priority={priority}
-      className={`object-contain object-left ${onDark ? 'h-auto w-full max-w-[200px]' : 'w-auto max-w-[220px]'} ${className}`}
-      style={{ height, width: 'auto', maxWidth: onDark ? 200 : 220 }}
-    />
+  const content = (
+    <div className={`inline-flex items-center gap-2.5 ${className}`} aria-label="jar — Billing Suite">
+      <JarIcon height={height} priority={priority} />
+      {showWordmark && (
+        <span
+          className={`font-display font-extrabold tracking-tight text-brand-800 ${textSizes[size]}`}
+        >
+          jar
+        </span>
+      )}
+    </div>
   );
 
   const wrapped = onDark ? (
-    <div className="inline-flex rounded-xl bg-white px-3 py-2 shadow-md shadow-black/10">
-      {image}
+    <div className="inline-flex rounded-2xl bg-white/95 px-3 py-2 shadow-lg shadow-black/10 ring-1 ring-white/20">
+      {content}
     </div>
   ) : (
-    image
+    content
   );
 
   if (href) {
     return (
-      <Link href={href} className="inline-flex items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded-lg">
+      <Link
+        href={href}
+        className="inline-flex items-center rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
+      >
         {wrapped}
       </Link>
     );
@@ -58,17 +99,13 @@ export function Logo({
   return wrapped;
 }
 
-/** Compact mark for top bar / profile */
+/** Compact jar mark for top bar / profile */
 export function LogoMark({ className = '', href }: { className?: string; href?: string }) {
   const content = (
-    <div className={`h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white p-0.5 shadow-sm ${className}`}>
-      <Image
-        src="/logo.png"
-        alt="JAR & Associates"
-        width={40}
-        height={40}
-        className="h-full w-full rounded-full object-cover"
-      />
+    <div
+      className={`inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-white shadow-sm ring-1 ring-border ${className}`}
+    >
+      <JarIcon height={34} className="p-1" />
     </div>
   );
 

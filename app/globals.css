@@ -1,20 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f0f6fc;
-  --foreground: #0f172a;
+  --background: #f4f8f5;
+  --foreground: #0f1f18;
   --surface: #ffffff;
-  --muted: #64748b;
-  --border: #d7e4f0;
-  --brand-50: #eff6ff;
-  --brand-100: #dbeafe;
-  --brand-500: #1e6fd9;
-  --brand-600: #1558b0;
-  --brand-700: #0f2b4a;
-  --brand-800: #0a2540;
-  --accent-400: #2dd4bf;
-  --accent-500: #0ea5a4;
-  --success: #059669;
+  --muted: #5c7268;
+  --border: #dce8e0;
+  --brand-50: #f0f7f3;
+  --brand-100: #d8ede3;
+  --brand-200: #b5d9c4;
+  --brand-500: #2a6b4f;
+  --brand-600: #1f4d3a;
+  --brand-700: #163d2e;
+  --brand-800: #0f2a20;
+  --brand-900: #0a1f18;
+  --accent-400: #b5e061;
+  --accent-500: #9acd32;
+  --accent-600: #7cb342;
+  --success: #2d8a5e;
   --danger: #dc2626;
 }
 
@@ -26,15 +29,19 @@
   --color-border: var(--border);
   --color-brand-50: var(--brand-50);
   --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
   --color-brand-500: var(--brand-500);
   --color-brand-600: var(--brand-600);
   --color-brand-700: var(--brand-700);
   --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
   --color-accent-400: var(--accent-400);
   --color-accent-500: var(--accent-500);
+  --color-accent-600: var(--accent-600);
   --color-success: var(--success);
   --color-danger: var(--danger);
   --font-sans: var(--font-jakarta);
+  --font-display: var(--font-nunito);
 }
 
 body {
@@ -49,33 +56,58 @@ input, select, textarea, button {
 
 .auth-grid {
   background:
-    radial-gradient(circle at 20% 20%, rgba(30, 111, 217, 0.18), transparent 35%),
-    radial-gradient(circle at 80% 0%, rgba(14, 165, 164, 0.16), transparent 30%),
-    linear-gradient(135deg, #0a2540 0%, #0f2b4a 45%, #1558b0 100%);
+    radial-gradient(ellipse 80% 60% at 15% 20%, rgba(154, 205, 50, 0.14), transparent 50%),
+    radial-gradient(ellipse 70% 50% at 85% 10%, rgba(31, 77, 58, 0.35), transparent 45%),
+    radial-gradient(ellipse 50% 40% at 60% 90%, rgba(181, 224, 97, 0.08), transparent 40%),
+    linear-gradient(145deg, #0a1f18 0%, #0f2a20 38%, #163d2e 72%, #1f4d3a 100%);
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(12px);
 }
 
 .dashboard-shell {
   background:
-    radial-gradient(circle at top right, rgba(30, 111, 217, 0.06), transparent 28%),
-    linear-gradient(180deg, #f7fbff 0%, #eef5fb 100%);
+    radial-gradient(ellipse 60% 45% at 100% 0%, rgba(154, 205, 50, 0.07), transparent 50%),
+    radial-gradient(ellipse 50% 40% at 0% 100%, rgba(31, 77, 58, 0.05), transparent 45%),
+    linear-gradient(180deg, #f8fbf9 0%, #eef5f0 100%);
 }
 
 .stat-card {
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  background: linear-gradient(165deg, #ffffff 0%, #f5faf7 55%, #eef6f1 100%);
+  border-color: rgba(220, 232, 224, 0.9);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 40px rgba(15, 42, 32, 0.07);
 }
 
 .sidebar-link-active {
-  background: linear-gradient(90deg, rgba(30, 111, 217, 0.18) 0%, rgba(14, 165, 164, 0.08) 100%);
+  background: linear-gradient(90deg, rgba(154, 205, 50, 0.18) 0%, rgba(31, 77, 58, 0.22) 100%);
   color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(181, 224, 97, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .table-head {
-  background: linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
+  background: linear-gradient(180deg, #f6faf8 0%, #ecf4ef 100%);
+}
+
+.bento-card {
+  background: linear-gradient(165deg, #ffffff 0%, #f8fbf9 100%);
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  box-shadow: 0 12px 36px rgba(15, 42, 32, 0.04);
+}
+
+.accent-glow {
+  box-shadow: 0 8px 28px rgba(154, 205, 50, 0.22);
+}
+
+.font-display {
+  font-family: var(--font-nunito), var(--font-jakarta), "Segoe UI", sans-serif;
 }

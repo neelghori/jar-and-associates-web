@@ -197,13 +197,13 @@ export default function ClientsPage() {
           size="xl"
         >
           {error && <div className="mb-4"><Alert message={error} /></div>}
-          <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
+          <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2" autoComplete="off">
             {editing?.clientId && (
               <Input label="Client ID" value={editing.clientId} disabled />
             )}
             <Input label="Client Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
             <Input label="Mobile (optional)" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} />
-            <div className="sm:col-span-2">
+            <div className="space-y-4 sm:col-span-2">
               <Input label="Address Line 1" value={form.address1} onChange={(e) => setForm({ ...form, address1: e.target.value })} required />
               <Input label="Address Line 2 (optional)" value={form.address2} onChange={(e) => setForm({ ...form, address2: e.target.value })} />
             </div>

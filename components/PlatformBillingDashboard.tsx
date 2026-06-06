@@ -125,9 +125,9 @@ export function PlatformBillingDashboard({ overview }: Props) {
   return (
     <div className="mt-8 space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-brand-800">Collections across companies</h2>
+        <h2 className="text-lg font-semibold text-brand-800">Collections overview</h2>
         <p className="mt-1 text-sm text-muted">
-          Pending amounts and outstanding invoices for every active company on the platform.
+          Pending amounts and outstanding invoices for JAR and Associates.
         </p>
       </div>
 
@@ -142,7 +142,7 @@ export function PlatformBillingDashboard({ overview }: Props) {
           value={totals.outstandingInvoiceCount}
           icon={IndianRupee}
         />
-        <StatCard label="Active companies" value={totals.companyCount} icon={Building2} />
+        <StatCard label="Organization" value={totals.companyCount} icon={Building2} />
         <StatCard
           label="Total invoiced"
           value={formatInr(totals.totalInvoiced)}
@@ -154,14 +154,14 @@ export function PlatformBillingDashboard({ overview }: Props) {
         <TableToolbar
           search={search}
           onSearchChange={setSearch}
-          placeholder="Search company, invoice number, or client..."
+          placeholder="Search invoice number or client..."
           total={overview.companies.length}
           filtered={filteredCompanies.length}
         />
       </Card>
 
       {filteredCompanies.length === 0 ? (
-        <Alert message="No companies match your search." />
+        <Alert message="No outstanding invoices match your search." />
       ) : (
         <div className="space-y-4">
           {filteredCompanies.map((company) => (

@@ -14,10 +14,10 @@ export function CompanyRequired({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="max-w-xl">
-      <Alert message="This module is available inside a company workspace. Sign in as a company superadmin or employee, or create a company from the Companies page." type="error" />
+      <Alert message="This module is available inside the JAR and Associates workspace. Sign in as a company superadmin or employee, or set up the organization first." type="error" />
       {user?.role === 'platform_admin' && (
         <Link href="/companies" className="mt-4 inline-block">
-          <Button>Go to Companies</Button>
+          <Button>Go to Organization</Button>
         </Link>
       )}
     </div>

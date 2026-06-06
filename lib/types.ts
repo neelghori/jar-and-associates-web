@@ -9,6 +9,28 @@ export interface User {
   isActive: boolean;
 }
 
+export interface SubCompany {
+  id: string;
+  company: string;
+  name: string;
+  address1: string;
+  address2?: string;
+  mobile: string;
+  email: string;
+  pan?: string;
+  tan?: string;
+  sacCode?: string;
+  bankName: string;
+  branchName: string;
+  ifscCode: string;
+  accountNumber?: string;
+  accountNumberMasked?: string;
+  authorizedSignatory?: string;
+  isCharteredAccountant: boolean;
+  isActive: boolean;
+  hasLogo?: boolean;
+}
+
 export interface Company {
   id: string;
   name: string;
@@ -74,9 +96,18 @@ export interface Task {
   isActive: boolean;
 }
 
+export interface PaymentMilestone {
+  _id: string;
+  label: string;
+  amount: number;
+  receivedDate: string;
+  note?: string;
+}
+
 export interface Invoice {
   _id: string;
   company: string;
+  subCompany?: string | { _id: string; name: string };
   client: { _id: string; name: string } | string;
   invoiceNumber: string;
   financialYear: string;
@@ -93,6 +124,7 @@ export interface Invoice {
   total: number;
   paidAmount?: number;
   pendingAmount?: number;
+  paymentMilestones?: PaymentMilestone[];
   paymentStatus?: 'pending' | 'partial' | 'paid';
   pdfPath?: string;
   createdAt: string;

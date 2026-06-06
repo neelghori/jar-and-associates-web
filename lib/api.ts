@@ -119,6 +119,25 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  getSubCompanies: () => request<{ subCompanies: unknown[] }>('/sub-companies'),
+  getSubCompany: (id: string) => request<{ subCompany: unknown }>(`/sub-companies/${id}`),
+  createSubCompany: (body: unknown) =>
+    request<{ subCompany: unknown }>('/sub-companies', { method: 'POST', body: JSON.stringify(body) }),
+  updateSubCompany: (id: string, body: unknown) =>
+    request<{ subCompany: unknown }>(`/sub-companies/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteSubCompany: (id: string) =>
+    request<{ message: string }>(`/sub-companies/${id}`, { method: 'DELETE' }),
+  uploadSubCompanyLogo: (id: string, file: File) => {
+    const formData = new FormData();
+    formData.append('logo', file);
+    return request<{ subCompany: unknown }>(`/sub-companies/${id}/logo`, {
+      method: 'PUT',
+      body: formData,
+    });
+  },
+  deleteSubCompanyLogo: (id: string) =>
+    request<{ subCompany: unknown }>(`/sub-companies/${id}/logo`, { method: 'DELETE' }),
+
   getClients: () => request<{ clients: unknown[] }>('/clients'),
   createClient: (body: unknown) =>
     request<{ client: unknown }>('/clients', { method: 'POST', body: JSON.stringify(body) }),
@@ -172,6 +191,27 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
+  addPaymentMilestone: (
+    id: string,
+    body: { label?: string; amount: number; receivedDate: string; note?: string }
+  ) =>
+    request<{ invoice: unknown }>(`/invoices/${id}/payment-milestones`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updatePaymentMilestone: (
+    invoiceId: string,
+    milestoneId: string,
+    body: { label?: string; amount?: number; receivedDate?: string; note?: string }
+  ) =>
+    request<{ invoice: unknown }>(`/invoices/${invoiceId}/payment-milestones/${milestoneId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deletePaymentMilestone: (invoiceId: string, milestoneId: string) =>
+    request<{ invoice: unknown }>(`/invoices/${invoiceId}/payment-milestones/${milestoneId}`, {
+      method: 'DELETE',
+    }),
   createInvoice: (body: unknown) =>
     request<{ invoice: unknown }>('/invoices', { method: 'POST', body: JSON.stringify(body) }),
   getInvoice: (id: string) => request<{ invoice: unknown }>(`/invoices/${id}`),
@@ -182,6 +222,19 @@ export const api = {
 
   taskAttachmentUrl: (id: string) => `${API_URL}/tasks/${id}/attachment`,
 };
+
+export function subCompanyLogoUrl(id: string) {
+  return `${API_URL}/sub-companies/${id}/logo`;
+}
+
+export async function fetchSubCompanyLogoBlob(id: string) {
+  const token = getToken();
+  const res = await fetch(subCompanyLogoUrl(id), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) return null;
+  return res.blob();
+}
 
 export async function openTaskAttachment(taskId: string) {
   const token = getToken();

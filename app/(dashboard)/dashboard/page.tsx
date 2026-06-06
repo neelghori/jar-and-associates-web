@@ -15,7 +15,14 @@ import type { Client, Company, Invoice, Task, User } from '@/lib/types';
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [stats, setStats] = useState({ clients: 0, tasks: 0, invoices: 0, users: 0, companies: 0 });
+  const [stats, setStats] = useState({
+    clients: 0,
+    tasks: 0,
+    invoices: 0,
+    users: 0,
+    companies: 0,
+    billingCompanies: 0,
+  });
   const [paymentSummary, setPaymentSummary] = useState<InvoicePaymentSummary | null>(null);
   const [platformBilling, setPlatformBilling] = useState<PlatformBillingOverview | null>(null);
   const [loadError, setLoadError] = useState('');
@@ -30,7 +37,8 @@ export default function DashboardPage() {
           api.getPlatformBillingOverview(),
         ]);
         setStats({
-          companies: (companiesRes.companies as Company[]).length,
+          companies: 1,
+          billingCompanies: 0,
           users: (usersRes.users as User[]).length,
           clients: 0,
           tasks: 0,
@@ -43,11 +51,14 @@ export default function DashboardPage() {
 
       if (!hasCompanyWorkspace(user)) return;
 
-      const [clientsRes, tasksRes, invoicesRes, summaryRes] = await Promise.all([
+      const [clientsRes, tasksRes, invoicesRes, summaryRes, subCompaniesRes] = await Promise.all([
         api.getClients(),
         api.getTasks(),
         api.getInvoices(),
         api.getInvoicePaymentSummary(),
+        user?.role === 'superadmin'
+          ? api.getSubCompanies()
+          : Promise.resolve({ subCompanies: [] }),
       ]);
 
       let usersCount = 0;
@@ -62,6 +73,7 @@ export default function DashboardPage() {
         invoices: (invoicesRes.invoices as Invoice[]).length,
         users: usersCount,
         companies: 0,
+        billingCompanies: (subCompaniesRes.subCompanies as unknown[]).length,
       });
       setPaymentSummary(summaryRes);
     }
@@ -73,7 +85,7 @@ export default function DashboardPage() {
   }, [user?.role, user?.company]);
 
   const platformCards = [
-    { label: 'Companies', value: stats.companies, icon: Building2 },
+    { label: 'Organization', value: stats.companies, icon: Building2 },
     { label: 'Users', value: stats.users, icon: Users },
   ];
 
@@ -81,7 +93,12 @@ export default function DashboardPage() {
     { label: 'Clients', value: stats.clients, icon: Users },
     { label: 'Tasks', value: stats.tasks, icon: ClipboardList },
     { label: 'Invoices', value: stats.invoices, icon: FileText },
-    ...(user?.role === 'superadmin' ? [{ label: 'Users', value: stats.users, icon: Users }] : []),
+    ...(user?.role === 'superadmin'
+      ? [
+          { label: 'Companies', value: stats.billingCompanies, icon: Building2 },
+          { label: 'Users', value: stats.users, icon: Users },
+        ]
+      : []),
   ];
 
   const cards = isPlatformAdmin(user) ? platformCards : companyCards;
@@ -93,7 +110,7 @@ export default function DashboardPage() {
         title="Dashboard"
         subtitle={
           isPlatformAdmin(user)
-            ? 'Review pending collections and outstanding invoices across all companies.'
+            ? 'Review pending collections and outstanding invoices for JAR and Associates.'
             : 'Track clients, tasks, billing, and payment collection from one place.'
         }
         hideLogo

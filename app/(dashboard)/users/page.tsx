@@ -45,7 +45,16 @@ export default function UsersPage() {
     if (!canManageCompanyUsers(currentUser)) return;
     loadUsers().catch(console.error);
     if (platformView) {
-      api.getCompanies().then((res) => setCompanies(res.companies as Company[])).catch(console.error);
+      api
+        .getCompanies()
+        .then((res) => {
+          const list = res.companies as Company[];
+          setCompanies(list);
+          if (list.length === 1) {
+            setForm((prev) => (prev.company ? prev : { ...prev, company: list[0].id }));
+          }
+        })
+        .catch(console.error);
     }
   }, [currentUser?.role, platformView]);
 
@@ -73,7 +82,13 @@ export default function UsersPage() {
 
   function openCreate() {
     setEditing(null);
-    setForm({ name: '', email: '', password: '', role: platformView ? 'superadmin' : 'employee', company: '' });
+    setForm({
+      name: '',
+      email: '',
+      password: '',
+      role: platformView ? 'superadmin' : 'employee',
+      company: companies.length === 1 ? companies[0].id : '',
+    });
     setError('');
     setShowForm(true);
   }
@@ -116,8 +131,15 @@ export default function UsersPage() {
         await api.updateUser(editing.id, payload);
         setSuccess('User updated successfully');
       } else {
+        const organizationId = form.company || (companies.length === 1 ? companies[0].id : '');
         const payload = platformView
-          ? { name: form.name, email: form.email, password: form.password, role: 'superadmin' as const, company: form.company }
+          ? {
+              name: form.name,
+              email: form.email,
+              password: form.password,
+              role: 'superadmin' as const,
+              company: organizationId,
+            }
           : { name: form.name, email: form.email, password: form.password, role: form.role };
         await api.createUser(payload);
         setSuccess('User created successfully');
@@ -250,23 +272,31 @@ export default function UsersPage() {
           )}
           {platformView && !editing && (
             <>
-              <Select
-                label="Company"
-                value={form.company}
-                onChange={(e) => setForm({ ...form, company: e.target.value })}
-                required
-              >
-                <option value="">Select company</option>
-                {companies
-                  .filter((c) => !c.superadmin)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.companyCode} — {c.name}
-                    </option>
-                  ))}
-              </Select>
+              {companies.length === 1 ? (
+                <Input
+                  label="Organization"
+                  value={`${companies[0].companyCode} — ${companies[0].name}`}
+                  disabled
+                />
+              ) : (
+                <Select
+                  label="Organization"
+                  value={form.company}
+                  onChange={(e) => setForm({ ...form, company: e.target.value })}
+                  required
+                >
+                  <option value="">Select organization</option>
+                  {companies
+                    .filter((c) => !c.superadmin)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.companyCode} — {c.name}
+                      </option>
+                    ))}
+                </Select>
+              )}
               <p className="text-sm text-muted rounded-xl border border-border bg-brand-50 px-3 py-2">
-                Role: <strong>Superadmin</strong> (company owner)
+                Role: <strong>Superadmin</strong> (organization owner)
               </p>
             </>
           )}

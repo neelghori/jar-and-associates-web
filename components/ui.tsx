@@ -18,7 +18,7 @@ export function PageHeader({
       <div className={`flex flex-col gap-4 sm:flex-row sm:items-center ${hideLogo ? '' : 'sm:gap-6'}`}>
         {!hideLogo && <Logo size="md" href="/dashboard" className="shrink-0" />}
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-brand-800">{title}</h1>
+          <h1 className="font-display text-3xl font-bold tracking-tight text-brand-800">{title}</h1>
           {subtitle && <p className="mt-2 text-sm leading-relaxed text-muted">{subtitle}</p>}
         </div>
       </div>
@@ -29,7 +29,9 @@ export function PageHeader({
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-2xl border border-border bg-surface p-6 shadow-[0_10px_30px_rgba(15,43,74,0.05)] ${className}`}>
+    <div
+      className={`bento-card rounded-[1.25rem] p-6 shadow-[0_12px_36px_rgba(15,42,32,0.04)] ${className}`}
+    >
       {children}
     </div>
   );
@@ -45,13 +47,15 @@ export function StatCard({
   icon: LucideIcon;
 }) {
   return (
-    <div className="stat-card rounded-2xl border border-border p-5 shadow-[0_10px_30px_rgba(15,43,74,0.05)]">
+    <div className="stat-card rounded-[1.25rem] border border-border p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-muted">{label}</p>
-          <p className="mt-3 text-2xl font-semibold tabular-nums whitespace-nowrap text-brand-800 sm:text-3xl">{value}</p>
+          <p className="mt-3 font-display text-2xl font-bold tabular-nums whitespace-nowrap text-brand-800 sm:text-3xl">
+            {value}
+          </p>
         </div>
-        <div className="rounded-2xl bg-brand-50 p-3 text-brand-600">
+        <div className="rounded-2xl bg-gradient-to-br from-brand-50 to-brand-100 p-3 text-brand-600 ring-1 ring-brand-200/60">
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -66,15 +70,17 @@ export function Button({
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'danger' | 'ghost' }) {
   const styles = {
-    primary: 'bg-gradient-to-r from-brand-600 to-brand-500 text-white hover:from-brand-700 hover:to-brand-600 shadow-lg shadow-brand-600/20',
-    secondary: 'border border-border bg-surface text-brand-800 hover:bg-brand-50',
-    danger: 'bg-danger text-white hover:bg-red-700',
+    primary:
+      'bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 text-white hover:from-brand-800 hover:via-brand-700 hover:to-brand-600 shadow-lg shadow-brand-600/25 accent-glow',
+    secondary:
+      'border border-border bg-surface text-brand-800 hover:bg-brand-50 hover:border-brand-200 shadow-sm',
+    danger: 'bg-danger text-white hover:bg-red-700 shadow-lg shadow-red-600/20',
     ghost: 'text-brand-700 hover:bg-brand-50',
   };
 
   return (
     <button
-      className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 ${styles[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 ${styles[variant]} ${className}`}
       {...props}
     >
       {children}
@@ -95,7 +101,7 @@ export function Input({
           <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
         )}
         <input
-          className={`w-full rounded-xl border border-border bg-white px-3 py-3 text-sm outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100 ${Icon ? 'pl-10' : ''}`}
+          className={`w-full rounded-2xl border border-border bg-white px-3 py-3 text-sm outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100 ${Icon ? 'pl-10' : ''}`}
           {...props}
         />
       </div>
@@ -111,7 +117,7 @@ export function Textarea({
     <label className="block">
       <span className="mb-2 block text-sm font-medium text-brand-800">{label}</span>
       <textarea
-        className="w-full rounded-xl border border-border bg-white px-3 py-3 text-sm outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
+        className="w-full rounded-2xl border border-border bg-white px-3 py-3 text-sm outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
         rows={3}
         {...props}
       />
@@ -128,7 +134,7 @@ export function Select({
     <label className="block">
       <span className="mb-2 block text-sm font-medium text-brand-800">{label}</span>
       <select
-        className="w-full rounded-xl border border-border bg-white px-3 py-3 text-sm outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
+        className="w-full rounded-2xl border border-border bg-white px-3 py-3 text-sm outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
         {...props}
       >
         {children}
@@ -141,18 +147,20 @@ export function Alert({ message, type = 'error' }: { message: string; type?: 'er
   const styles =
     type === 'error'
       ? 'bg-red-50 text-red-700 border-red-200'
-      : 'bg-emerald-50 text-emerald-700 border-emerald-200';
-  return <div className={`rounded-xl border px-4 py-3 text-sm ${styles}`}>{message}</div>;
+      : 'bg-brand-50 text-brand-700 border-brand-200';
+  return <div className={`rounded-2xl border px-4 py-3 text-sm ${styles}`}>{message}</div>;
 }
 
 export function Table({ headers, children }: { headers: string[]; children: ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border">
+    <div className="overflow-x-auto rounded-[1.25rem] border border-border shadow-[0_8px_24px_rgba(15,42,32,0.03)]">
       <table className="min-w-full text-sm">
         <thead className="table-head text-left">
           <tr>
             {headers.map((h) => (
-              <th key={h} className="px-4 py-3 font-semibold text-brand-700">{h}</th>
+              <th key={h} className="px-4 py-3.5 font-semibold text-brand-700">
+                {h}
+              </th>
             ))}
           </tr>
         </thead>
@@ -163,5 +171,5 @@ export function Table({ headers, children }: { headers: string[]; children: Reac
 }
 
 export function SectionTitle({ children }: { children: ReactNode }) {
-  return <h2 className="mb-4 text-lg font-semibold text-brand-800">{children}</h2>;
+  return <h2 className="font-display mb-4 text-lg font-bold text-brand-800">{children}</h2>;
 }
