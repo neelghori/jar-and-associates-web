@@ -37,7 +37,7 @@ export function PaymentCharts({ summary }: PaymentChartsProps) {
             <div className="flex h-11 overflow-hidden rounded-xl border border-border bg-slate-100">
               {receivedPct > 0 && (
                 <div
-                  className="flex items-center justify-center bg-brand-600 text-[10px] font-semibold text-white transition-all"
+                  className="flex items-center justify-center bg-accent-500 text-[10px] font-bold text-brand-900 transition-all"
                   style={{ width: `${Math.max(receivedPct, receivedPct > 0 ? 8 : 0)}%` }}
                   title={`Received ${formatInr(summary.totalReceived)}`}
                 >
@@ -56,7 +56,7 @@ export function PaymentCharts({ summary }: PaymentChartsProps) {
             </div>
             <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted">
               <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm bg-brand-600" />
+                <span className="h-2.5 w-2.5 rounded-sm bg-accent-500" />
                 Received
               </span>
               <span className="flex items-center gap-1.5">
@@ -114,7 +114,7 @@ export function PaymentCharts({ summary }: PaymentChartsProps) {
                     >
                       <div className="flex w-6 flex-col items-center justify-end" title={`Received ${formatInr(m.received)}`}>
                         <div
-                          className="w-full rounded-t-md bg-brand-600 transition-all"
+                          className="w-full rounded-t-md bg-accent-500 transition-all"
                           style={{ height: recH }}
                         />
                       </div>
@@ -135,7 +135,7 @@ export function PaymentCharts({ summary }: PaymentChartsProps) {
             </div>
             <div className="mt-4 flex justify-center gap-6 border-t border-border pt-3 text-xs text-muted">
               <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-3 rounded-sm bg-brand-600" />
+                <span className="h-2.5 w-3 rounded-sm bg-accent-500" />
                 Received
               </span>
               <span className="flex items-center gap-1.5">

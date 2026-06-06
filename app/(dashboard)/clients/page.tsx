@@ -1,14 +1,16 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
 import { CompanyRequired } from '@/components/CompanyRequired';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Modal } from '@/components/Modal';
 import { RowActions } from '@/components/RowActions';
+import { Pagination } from '@/components/Pagination';
 import { EmptyTableRow, TableToolbar } from '@/components/TableToolbar';
-import { filterBySearch } from '@/lib/filterList';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
+import { mapPaginatedList } from '@/lib/listApi';
 import {
   normalizeTaxPayload,
   TAX_ID_HINTS,
@@ -40,8 +42,22 @@ function clientToForm(client: Client) {
 }
 
 export default function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [search, setSearch] = useState('');
+  const fetchClients = useCallback(
+    async (params: Record<string, string>) => mapPaginatedList<Client>('clients', await api.getClients(params)),
+    []
+  );
+  const {
+    items: clients,
+    search,
+    setSearch,
+    page,
+    setPage,
+    total,
+    totalPages,
+    limit,
+    loading: listLoading,
+    reload,
+  } = usePaginatedList({ fetchList: fetchClients });
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
@@ -50,21 +66,6 @@ export default function ClientsPage() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
-  async function loadClients() {
-    const res = await api.getClients();
-    setClients(res.clients as Client[]);
-  }
-
-  useEffect(() => { loadClients().catch(console.error); }, []);
-
-  const filteredClients = useMemo(
-    () =>
-      filterBySearch(clients, search, (c) => [
-        c.clientId, c.name, c.mobile, c.email, c.gst, c.pan, c.tan, c.address1, c.address2, c.state,
-      ]),
-    [clients, search]
-  );
 
   function openCreate() {
     setEditing(null);
@@ -111,7 +112,7 @@ export default function ClientsPage() {
         setSuccess('Client created successfully');
       }
       closeForm();
-      await loadClients();
+      await reload();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to save client');
     } finally {
@@ -127,7 +128,7 @@ export default function ClientsPage() {
       await api.deleteClient(deleteTarget._id);
       setSuccess('Client deleted successfully');
       setDeleteTarget(null);
-      await loadClients();
+      await reload();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to delete client');
       setDeleteTarget(null);
@@ -158,18 +159,20 @@ export default function ClientsPage() {
             search={search}
             onSearchChange={setSearch}
             placeholder="Search by client ID, name, email, mobile, GST, PAN..."
-            total={clients.length}
-            filtered={filteredClients.length}
+            total={total}
+            page={page}
+            limit={limit}
+            loading={listLoading}
           />
 
           <Table headers={['Client ID', 'Name', 'Mobile', 'Email', 'GST', 'PAN', 'Actions']}>
-            {filteredClients.length === 0 ? (
+            {!listLoading && clients.length === 0 ? (
               <EmptyTableRow
                 colSpan={7}
                 message={search ? 'No clients match your search.' : 'No clients yet. Click Add Client to create one.'}
               />
             ) : (
-              filteredClients.map((client) => (
+              clients.map((client) => (
                 <tr key={client._id} className="hover:bg-brand-50/50">
                   <td className="px-4 py-3 font-mono text-sm text-brand-700">{client.clientId || '—'}</td>
                   <td className="px-4 py-3 font-medium text-brand-800">{client.name}</td>
@@ -187,6 +190,14 @@ export default function ClientsPage() {
               ))
             )}
           </Table>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            limit={limit}
+            onPageChange={setPage}
+            disabled={listLoading}
+          />
         </Card>
 
         <Modal

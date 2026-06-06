@@ -4,8 +4,8 @@ import { Eye, Pencil, Trash2 } from 'lucide-react';
 
 type RowActionsProps = {
   onView?: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 };
 
 const btn =
@@ -20,19 +20,23 @@ export function RowActions({ onView, onEdit, onDelete }: RowActionsProps) {
           <span>View</span>
         </button>
       )}
-      <button type="button" className={`${btn} text-brand-700`} onClick={onEdit} title="Edit">
-        <Pencil className="h-4 w-4 shrink-0" />
-        <span>Edit</span>
-      </button>
-      <button
-        type="button"
-        className={`${btn} text-red-600 hover:bg-red-50`}
-        onClick={onDelete}
-        title="Delete"
-      >
-        <Trash2 className="h-4 w-4 shrink-0" />
-        <span>Delete</span>
-      </button>
+      {onEdit && (
+        <button type="button" className={`${btn} text-brand-700`} onClick={onEdit} title="Edit">
+          <Pencil className="h-4 w-4 shrink-0" />
+          <span>Edit</span>
+        </button>
+      )}
+      {onDelete && (
+        <button
+          type="button"
+          className={`${btn} text-red-600 hover:bg-red-50`}
+          onClick={onDelete}
+          title="Delete"
+        >
+          <Trash2 className="h-4 w-4 shrink-0" />
+          <span>Delete</span>
+        </button>
+      )}
     </div>
   );
 }

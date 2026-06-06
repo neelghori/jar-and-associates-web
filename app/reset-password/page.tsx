@@ -74,7 +74,7 @@ function ResetPasswordForm() {
       {message && (
         <Link
           href="/login"
-          className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-brand-600 hover:text-brand-700"
+          className="link-secondary mt-6 inline-flex items-center gap-2 text-sm font-medium"
         >
           <ArrowLeft className="h-4 w-4" />
           Go to login
@@ -89,7 +89,6 @@ export default function ResetPasswordPage() {
     <AuthShell
       title="Create a new password"
       subtitle="Choose a strong password to secure your billing workspace."
-      badge="Password Security"
     >
       <Suspense fallback={<p className="text-sm text-muted">Loading...</p>}>
         <ResetPasswordForm />

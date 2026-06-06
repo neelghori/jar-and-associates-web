@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, clearToken, getStoredUser, setStoredUser, setToken } from './api';
+import { getHomePath } from './roles';
 import type { User } from './types';
 
 interface AuthContextValue {
@@ -44,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(res.token);
     setStoredUser(res.user);
     setUser(res.user as User);
-    router.push('/dashboard');
+    router.push(getHomePath(res.user as User));
   }
 
   function logout() {

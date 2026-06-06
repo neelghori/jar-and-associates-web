@@ -47,7 +47,7 @@ export function Modal({ open, onClose, title, description, children, size = 'lg'
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-title"
-          className={`relative z-10 flex w-full ${widths[size]} max-h-[min(90vh,calc(100dvh-2rem))] flex-col rounded-[1.25rem] border border-border bg-surface shadow-[0_24px_64px_rgba(15,42,32,0.12)]`}
+          className={`relative z-10 flex w-full ${widths[size]} max-h-[min(90vh,calc(100dvh-2rem))] flex-col rounded-xl border border-border bg-surface shadow-[0_24px_64px_rgba(10,10,10,0.12)]`}
         >
           <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border px-6 py-4">
             <div className="min-w-0 pr-2">

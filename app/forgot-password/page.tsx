@@ -35,7 +35,6 @@ export default function ForgotPasswordPage() {
     <AuthShell
       title="Reset your password"
       subtitle="Enter the email linked to your account and we will send you a secure reset link."
-      badge="Account Recovery"
     >
       {error && <div className="mb-4"><Alert message={error} /></div>}
       {message && <div className="mb-4"><Alert message={message} type="success" /></div>}
@@ -63,7 +62,7 @@ export default function ForgotPasswordPage() {
 
       <Link
         href="/login"
-        className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-brand-600 hover:text-brand-700"
+        className="link-secondary mt-6 inline-flex items-center gap-2 text-sm font-medium"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to login

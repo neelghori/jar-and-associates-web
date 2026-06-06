@@ -23,7 +23,7 @@ export function TaskStatusSelect({ value, onChange, disabled }: TaskStatusSelect
       value={current}
       disabled={disabled}
       onChange={(e) => onChange(e.target.value as TaskStatus)}
-      className={`w-full min-w-[9.5rem] max-w-[11rem] cursor-pointer rounded-lg border px-3 py-2 text-sm font-semibold outline-none transition focus:ring-2 focus:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-60 ${styles.badge}`}
+      className={`w-full min-w-[9.5rem] max-w-[11rem] cursor-pointer rounded-lg border px-3 py-2 text-sm font-semibold outline-none transition focus:ring-2 focus:ring-accent-500/30 disabled:cursor-not-allowed disabled:opacity-60 ${styles.badge}`}
       aria-label="Task status"
     >
       {TASK_STATUSES.map((status) => (

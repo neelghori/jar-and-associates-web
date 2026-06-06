@@ -2,115 +2,101 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 type LogoProps = {
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
-  /** Light padded frame on dark sidebar / auth panel */
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  /** Invert logo to white on dark backgrounds — no white box */
   onDark?: boolean;
+  /** Center the logo horizontally in its container */
+  centered?: boolean;
   href?: string;
   className?: string;
   priority?: boolean;
 };
 
 const heights = {
-  xs: 28,
-  sm: 36,
-  md: 44,
-  lg: 52,
-  xl: 64,
+  xs: 32,
+  sm: 40,
+  md: 48,
+  lg: 64,
+  xl: 80,
+  '2xl': 96,
 } as const;
 
-const textSizes = {
-  xs: 'text-lg',
-  sm: 'text-xl',
-  md: 'text-2xl',
-  lg: 'text-3xl',
-  xl: 'text-4xl',
-} as const;
-
-/** Jar icon aspect ratio (135 × 158) */
-const ICON_ASPECT = 135 / 158;
-
-function JarIcon({
-  height,
-  priority = false,
-  className = '',
-}: {
-  height: number;
-  priority?: boolean;
-  className?: string;
-}) {
-  const width = Math.round(height * ICON_ASPECT);
-
-  return (
-    <Image
-      src="/jar-icon.png"
-      alt=""
-      width={width}
-      height={height}
-      priority={priority}
-      aria-hidden
-      className={`shrink-0 object-contain ${className}`}
-      style={{ height, width }}
-    />
-  );
-}
+/** JAR wordmark aspect ratio (~830 × 287) */
+const LOGO_ASPECT = 830 / 287;
 
 export function Logo({
   size = 'md',
   onDark = false,
+  centered = false,
   href,
   className = '',
   priority = false,
 }: LogoProps) {
   const height = heights[size];
-  const showWordmark = size !== 'xs';
+  const width = Math.round(height * LOGO_ASPECT);
 
-  const content = (
-    <div className={`inline-flex items-center gap-2.5 ${className}`} aria-label="jar — Billing Suite">
-      <JarIcon height={height} priority={priority} />
-      {showWordmark && (
-        <span
-          className={`font-display font-extrabold tracking-tight text-brand-800 ${textSizes[size]}`}
-        >
-          jar
-        </span>
-      )}
-    </div>
+  const image = (
+    <Image
+      src="/jar-logo.png"
+      alt="JAR — Billing Suite"
+      width={width}
+      height={height}
+      priority={priority}
+      unoptimized
+      className={`block object-contain ${centered ? 'object-center' : 'object-left'} ${onDark ? 'brightness-0 invert' : ''} ${className}`}
+      style={{ height, width }}
+    />
   );
 
-  const wrapped = onDark ? (
-    <div className="inline-flex rounded-2xl bg-white/95 px-3 py-2 shadow-lg shadow-black/10 ring-1 ring-white/20">
-      {content}
+  const content = (
+    <div className={centered ? 'flex w-full justify-center' : 'inline-flex shrink-0 items-center'}>
+      {image}
     </div>
-  ) : (
-    content
   );
 
   if (href) {
     return (
       <Link
         href={href}
-        className="inline-flex items-center rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
+        className={`rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 ${centered ? 'block w-full' : 'inline-flex shrink-0 items-center'}`}
       >
-        {wrapped}
+        {content}
       </Link>
     );
   }
 
-  return wrapped;
+  return content;
 }
 
-/** Compact jar mark for top bar / profile */
-export function LogoMark({ className = '', href }: { className?: string; href?: string }) {
+/** Compact JAR mark */
+export function LogoMark({
+  className = '',
+  href,
+  onDark = false,
+}: {
+  className?: string;
+  href?: string;
+  onDark?: boolean;
+}) {
+  const height = 28;
+  const width = Math.round(height * LOGO_ASPECT);
+
   const content = (
-    <div
-      className={`inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-white shadow-sm ring-1 ring-border ${className}`}
-    >
-      <JarIcon height={34} className="p-1" />
+    <div className={`inline-flex shrink-0 items-center justify-center ${className}`}>
+      <Image
+        src="/jar-logo.png"
+        alt="JAR"
+        width={width}
+        height={height}
+        unoptimized
+        className={`block object-contain ${onDark ? 'brightness-0 invert' : ''}`}
+        style={{ height, width }}
+      />
     </div>
   );
 
   if (href) {
-    return <Link href={href}>{content}</Link>;
+    return <Link href={href} className="shrink-0">{content}</Link>;
   }
 
   return content;

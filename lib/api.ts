@@ -94,7 +94,9 @@ export const api = {
 
   getUsers: (params?: Record<string, string>) => {
     const query = params ? `?${new URLSearchParams(params)}` : '';
-    return request<{ users: unknown[] }>(`/users${query}`);
+    return request<{ users: unknown[]; total?: number; page?: number; limit?: number; totalPages?: number }>(
+      `/users${query}`
+    );
   },
   getUnassignedUsers: () => request<{ users: unknown[] }>('/users?unassigned=true'),
   createUser: (body: unknown) =>
@@ -104,8 +106,12 @@ export const api = {
   deleteUser: (id: string) =>
     request<{ message: string }>(`/users/${id}`, { method: 'DELETE' }),
 
-  getPlatformBillingOverview: () =>
-    request<PlatformBillingOverview>('/platform/billing-overview'),
+  getPlatformBillingOverview: (params?: Record<string, string>) => {
+    const query = params ? `?${new URLSearchParams(params)}` : '';
+    return request<PlatformBillingOverview & { total?: number; page?: number; limit?: number; totalPages?: number }>(
+      `/platform/billing-overview${query}`
+    );
+  },
 
   getCompanies: () => request<{ companies: unknown[] }>('/companies'),
   getCompany: (id: string) => request<{ company: unknown }>(`/companies/${id}`),
@@ -119,7 +125,12 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  getSubCompanies: () => request<{ subCompanies: unknown[] }>('/sub-companies'),
+  getSubCompanies: (params?: Record<string, string>) => {
+    const query = params ? `?${new URLSearchParams(params)}` : '';
+    return request<{ subCompanies: unknown[]; total?: number; page?: number; limit?: number; totalPages?: number }>(
+      `/sub-companies${query}`
+    );
+  },
   getSubCompany: (id: string) => request<{ subCompany: unknown }>(`/sub-companies/${id}`),
   createSubCompany: (body: unknown) =>
     request<{ subCompany: unknown }>('/sub-companies', { method: 'POST', body: JSON.stringify(body) }),
@@ -138,7 +149,12 @@ export const api = {
   deleteSubCompanyLogo: (id: string) =>
     request<{ subCompany: unknown }>(`/sub-companies/${id}/logo`, { method: 'DELETE' }),
 
-  getClients: () => request<{ clients: unknown[] }>('/clients'),
+  getClients: (params?: Record<string, string>) => {
+    const query = params ? `?${new URLSearchParams(params)}` : '';
+    return request<{ clients: unknown[]; total?: number; page?: number; limit?: number; totalPages?: number }>(
+      `/clients${query}`
+    );
+  },
   createClient: (body: unknown) =>
     request<{ client: unknown }>('/clients', { method: 'POST', body: JSON.stringify(body) }),
   updateClient: (id: string, body: unknown) =>
@@ -146,7 +162,12 @@ export const api = {
   deleteClient: (id: string) =>
     request<{ message: string }>(`/clients/${id}`, { method: 'DELETE' }),
 
-  getServices: () => request<{ services: unknown[] }>('/services'),
+  getServices: (params?: Record<string, string>) => {
+    const query = params ? `?${new URLSearchParams(params)}` : '';
+    return request<{ services: unknown[]; total?: number; page?: number; limit?: number; totalPages?: number }>(
+      `/services${query}`
+    );
+  },
   createService: (body: unknown) =>
     request<{ service: unknown }>('/services', { method: 'POST', body: JSON.stringify(body) }),
   updateService: (id: string, body: unknown) =>
@@ -156,7 +177,9 @@ export const api = {
 
   getTasks: (params?: Record<string, string>) => {
     const query = params ? `?${new URLSearchParams(params)}` : '';
-    return request<{ tasks: unknown[] }>(`/tasks${query}`);
+    return request<{ tasks: unknown[]; total?: number; page?: number; limit?: number; totalPages?: number }>(
+      `/tasks${query}`
+    );
   },
   createTask: (formData: FormData) =>
     request<{ task: unknown }>('/tasks', { method: 'POST', body: formData }),
@@ -170,9 +193,11 @@ export const api = {
   deleteTask: (id: string) =>
     request<{ message: string }>(`/tasks/${id}`, { method: 'DELETE' }),
 
-  getInvoices: (clientId?: string) => {
-    const query = clientId ? `?clientId=${clientId}` : '';
-    return request<{ invoices: unknown[] }>(`/invoices${query}`);
+  getInvoices: (params?: Record<string, string>) => {
+    const query = params ? `?${new URLSearchParams(params)}` : '';
+    return request<{ invoices: unknown[]; total?: number; page?: number; limit?: number; totalPages?: number }>(
+      `/invoices${query}`
+    );
   },
   getInvoicePaymentSummary: () =>
     request<{

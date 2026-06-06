@@ -7,7 +7,6 @@ import { useAuth } from '@/lib/auth-context';
 import { canManageCompanies, isCompanySuperadmin, isPlatformAdmin } from '@/lib/roles';
 import { DEFAULT_COMPANY_NAME } from '@/lib/organization';
 import { Alert, Button, Card, Input, PageHeader } from '@/components/ui';
-import { TopBar } from '@/components/Sidebar';
 import type { Company } from '@/lib/types';
 import {
   getPanError,
@@ -142,8 +141,7 @@ export default function CompaniesPage() {
 
   return (
     <div>
-      <TopBar title={platformView ? 'Platform administration' : 'Company profile'} />
-      <PageHeader hideLogo title={pageTitle} subtitle={pageSubtitle} />
+      <PageHeader title={pageTitle} subtitle={pageSubtitle} />
 
       {error && (
         <div className="mb-4">

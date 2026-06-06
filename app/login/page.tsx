@@ -56,7 +56,7 @@ export default function LoginPage() {
         />
 
         <div className="flex items-center justify-end">
-          <Link href="/forgot-password" className="text-sm font-medium text-brand-600 hover:text-brand-700">
+          <Link href="/forgot-password" className="link-secondary text-sm font-medium">
             Forgot password?
           </Link>
         </div>
@@ -67,9 +67,6 @@ export default function LoginPage() {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-xs leading-relaxed text-muted">
-        Secure login with encrypted sessions and role-based access for your CA firm.
-      </p>
     </AuthShell>
   );
 }

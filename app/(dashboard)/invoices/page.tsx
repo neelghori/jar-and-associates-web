@@ -1,7 +1,7 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Check, FileText, IndianRupee, Pencil, Plus, Trash2 } from 'lucide-react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { Building2, Check, FileText, IndianRupee, Pencil, Plus, Trash2 } from 'lucide-react';
 import { api, ApiError, downloadInvoice } from '@/lib/api';
 import { CompanyRequired } from '@/components/CompanyRequired';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -9,8 +9,10 @@ import { Modal } from '@/components/Modal';
 import { MoneyAmount } from '@/components/MoneyAmount';
 import { PaymentCharts } from '@/components/PaymentCharts';
 import { RowActions } from '@/components/RowActions';
+import { Pagination } from '@/components/Pagination';
 import { EmptyTableRow, TableToolbar } from '@/components/TableToolbar';
-import { filterBySearch } from '@/lib/filterList';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
+import { mapPaginatedList } from '@/lib/listApi';
 import {
   formatInr,
   getInvoicePending,
@@ -67,11 +69,31 @@ function toDateInput(iso: string) {
 }
 
 export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [subCompanies, setSubCompanies] = useState<SubCompany[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [search, setSearch] = useState('');
+  const [companyFilter, setCompanyFilter] = useState('');
+  const invoiceExtraParams = useMemo((): Record<string, string> => {
+    if (!companyFilter) return {};
+    return { subCompanyId: companyFilter };
+  }, [companyFilter]);
+  const fetchInvoices = useCallback(
+    async (params: Record<string, string>) =>
+      mapPaginatedList<Invoice>('invoices', await api.getInvoices(params)),
+    []
+  );
+  const {
+    items: invoices,
+    search,
+    setSearch,
+    page,
+    setPage,
+    total,
+    totalPages,
+    limit,
+    loading: listLoading,
+    reload: reloadInvoices,
+  } = usePaginatedList({ fetchList: fetchInvoices, extraParams: invoiceExtraParams });
   const [showForm, setShowForm] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [editing, setEditing] = useState<Invoice | null>(null);
@@ -99,13 +121,13 @@ export default function InvoicesPage() {
   const [paymentTab, setPaymentTab] = useState<'record' | 'history'>('record');
   const [paymentLoading, setPaymentLoading] = useState(false);
 
-  async function loadInvoices() {
-    const [invRes, summaryRes] = await Promise.all([
-      api.getInvoices(),
-      api.getInvoicePaymentSummary(),
-    ]);
-    setInvoices(invRes.invoices as Invoice[]);
+  async function loadPaymentSummary() {
+    const summaryRes = await api.getInvoicePaymentSummary();
     setPaymentSummary(summaryRes);
+  }
+
+  async function refreshInvoiceData() {
+    await Promise.all([reloadInvoices(), loadPaymentSummary()]);
   }
 
   useEffect(() => {
@@ -119,7 +141,7 @@ export default function InvoicesPage() {
     api.getSubCompanies()
       .then((res) => setSubCompanies(res.subCompanies as SubCompany[]))
       .catch(console.error);
-    loadInvoices().catch(console.error);
+    loadPaymentSummary().catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -148,19 +170,7 @@ export default function InvoicesPage() {
     setLineSacCodes({});
   }, [clientId]);
 
-  const filteredInvoices = useMemo(
-    () =>
-      filterBySearch(invoices, search, (inv) => [
-        inv.invoiceNumber,
-        typeof inv.client === 'object' ? inv.client.name : '',
-        typeof inv.subCompany === 'object' ? inv.subCompany.name : '',
-        inv.total,
-        new Date(inv.invoiceDate).toLocaleDateString('en-IN'),
-      ]),
-    [invoices, search]
-  );
-
-  const total = useMemo(
+  const invoiceTotal = useMemo(
     () =>
       selectedTasks.reduce((sum, id) => {
         const amount = parseFloat(lineAmounts[id] || '0');
@@ -301,7 +311,7 @@ export default function InvoicesPage() {
       setShowForm(false);
       setTasks([]);
       setSelectedTasks([]);
-      await loadInvoices();
+      await refreshInvoiceData();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to generate invoice');
     } finally {
@@ -344,7 +354,7 @@ export default function InvoicesPage() {
       });
       setSuccess('Invoice updated and PDF regenerated');
       closeEdit();
-      await loadInvoices();
+      await refreshInvoiceData();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to update invoice');
     } finally {
@@ -360,7 +370,7 @@ export default function InvoicesPage() {
       await api.deleteInvoice(deleteTarget._id);
       setSuccess('Invoice deleted successfully');
       setDeleteTarget(null);
-      await loadInvoices();
+      await refreshInvoiceData();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to delete invoice');
       setDeleteTarget(null);
@@ -431,7 +441,7 @@ export default function InvoicesPage() {
 
   async function refreshPaymentState(invoice: Invoice) {
     applyPaymentInvoice(invoice);
-    await loadInvoices();
+    await refreshInvoiceData();
   }
 
   async function handleMilestoneSubmit(e: FormEvent) {
@@ -532,8 +542,31 @@ export default function InvoicesPage() {
             search={search}
             onSearchChange={setSearch}
             placeholder="Search by invoice number, client, or amount..."
-            total={invoices.length}
-            filtered={filteredInvoices.length}
+            total={total}
+            page={page}
+            limit={limit}
+            loading={listLoading}
+            filters={
+              subCompanies.length > 0 ? (
+                <div className="relative w-full shrink-0 sm:w-56">
+                  <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                  <select
+                    value={companyFilter}
+                    onChange={(e) => setCompanyFilter(e.target.value)}
+                    aria-label="Filter by company"
+                    className="h-10 w-full appearance-none rounded-lg border border-border bg-white py-2 pl-10 pr-8 text-sm text-brand-900 outline-none transition focus:border-brand-900 focus:ring-4 focus:ring-brand-900/10"
+                  >
+                    <option value="">All companies</option>
+                    {subCompanies.map((sc) => (
+                      <option key={sc.id} value={sc.id}>
+                        {sc.name}
+                      </option>
+                    ))}
+                    <option value="__none__">No company assigned</option>
+                  </select>
+                </div>
+              ) : undefined
+            }
           />
 
           <Table
@@ -549,13 +582,17 @@ export default function InvoicesPage() {
               'Actions',
             ]}
           >
-            {filteredInvoices.length === 0 ? (
+            {!listLoading && invoices.length === 0 ? (
               <EmptyTableRow
                 colSpan={9}
-                message={search ? 'No invoices match your search.' : 'No invoices yet. Click Generate Invoice to create one.'}
+                message={
+                  search || companyFilter
+                    ? 'No invoices match your filters.'
+                    : 'No invoices yet. Click Generate Invoice to create one.'
+                }
               />
             ) : (
-              filteredInvoices.map((invoice) => (
+              invoices.map((invoice) => (
                 <tr key={invoice._id} className="hover:bg-brand-50/50">
                   <td className="px-4 py-3 font-medium text-brand-800">{invoice.invoiceNumber}</td>
                   <td className="px-4 py-3">
@@ -613,6 +650,14 @@ export default function InvoicesPage() {
               ))
             )}
           </Table>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            limit={limit}
+            onPageChange={setPage}
+            disabled={listLoading}
+          />
         </Card>
 
         <Modal
@@ -711,7 +756,7 @@ export default function InvoicesPage() {
             )}
 
             <div className="rounded-xl border border-border bg-brand-50 px-3 py-2 text-sm">
-              Invoice total: <strong className="text-brand-800">₹ {total.toFixed(2)}</strong>
+              Invoice total: <strong className="text-brand-800">₹ {invoiceTotal.toFixed(2)}</strong>
             </div>
 
             <div className="flex gap-3 pt-2">

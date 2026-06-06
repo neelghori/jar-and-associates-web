@@ -1,20 +1,36 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
 import { CompanyRequired } from '@/components/CompanyRequired';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Modal } from '@/components/Modal';
 import { RowActions } from '@/components/RowActions';
+import { Pagination } from '@/components/Pagination';
 import { EmptyTableRow, TableToolbar } from '@/components/TableToolbar';
-import { filterBySearch } from '@/lib/filterList';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
+import { mapPaginatedList } from '@/lib/listApi';
 import { Alert, Button, Card, Input, PageHeader, Table } from '@/components/ui';
 import type { Service } from '@/lib/types';
 
 export default function ServicesPage() {
-  const [services, setServices] = useState<Service[]>([]);
-  const [search, setSearch] = useState('');
+  const fetchServices = useCallback(
+    async (params: Record<string, string>) => mapPaginatedList<Service>('services', await api.getServices(params)),
+    []
+  );
+  const {
+    items: services,
+    search,
+    setSearch,
+    page,
+    setPage,
+    total,
+    totalPages,
+    limit,
+    loading: listLoading,
+    reload,
+  } = usePaginatedList({ fetchList: fetchServices });
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Service | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Service | null>(null);
@@ -24,18 +40,6 @@ export default function ServicesPage() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
-  async function loadServices() {
-    const res = await api.getServices();
-    setServices(res.services as Service[]);
-  }
-
-  useEffect(() => { loadServices().catch(console.error); }, []);
-
-  const filteredServices = useMemo(
-    () => filterBySearch(services, search, (s) => [s.name, s.description, s.defaultAmount]),
-    [services, search]
-  );
 
   function openCreate() {
     setEditing(null);
@@ -76,7 +80,7 @@ export default function ServicesPage() {
         setSuccess('Service created successfully');
       }
       closeForm();
-      await loadServices();
+      await reload();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to save service');
     } finally {
@@ -91,7 +95,7 @@ export default function ServicesPage() {
       await api.deleteService(deleteTarget._id);
       setSuccess('Service deleted successfully');
       setDeleteTarget(null);
-      await loadServices();
+      await reload();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to delete service');
       setDeleteTarget(null);
@@ -122,18 +126,20 @@ export default function ServicesPage() {
             search={search}
             onSearchChange={setSearch}
             placeholder="Search by service name..."
-            total={services.length}
-            filtered={filteredServices.length}
+            total={total}
+            page={page}
+            limit={limit}
+            loading={listLoading}
           />
 
           <Table headers={['Service Name', 'Default Amount', 'Actions']}>
-            {filteredServices.length === 0 ? (
+            {!listLoading && services.length === 0 ? (
               <EmptyTableRow
                 colSpan={3}
                 message={search ? 'No services match your search.' : 'No services yet. Click Add Service to create one.'}
               />
             ) : (
-              filteredServices.map((service) => (
+              services.map((service) => (
                 <tr key={service._id} className="hover:bg-brand-50/50">
                   <td className="px-4 py-3 font-medium text-brand-800">{service.name}</td>
                   <td className="px-4 py-3">₹ {service.defaultAmount?.toFixed(2) || '0.00'}</td>
@@ -147,6 +153,14 @@ export default function ServicesPage() {
               ))
             )}
           </Table>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            limit={limit}
+            onPageChange={setPage}
+            disabled={listLoading}
+          />
         </Card>
 
         <Modal

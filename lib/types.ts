@@ -80,6 +80,12 @@ export interface Service {
   isActive: boolean;
 }
 
+export interface TaskRecurrenceRef {
+  _id: string;
+  frequency: 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+  isActive: boolean;
+}
+
 export interface Task {
   _id: string;
   company: string;
@@ -92,6 +98,9 @@ export interface Task {
   amount: number;
   attachment?: string;
   status: 'todo' | 'inprogress' | 'completed';
+  assignedTo?: string | { _id: string; name: string; email?: string; role?: string };
+  taskType?: 'one_time' | 'recurring';
+  recurrenceId?: string | TaskRecurrenceRef | null;
   isInvoiced?: boolean;
   isActive: boolean;
 }

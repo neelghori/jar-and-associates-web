@@ -6,8 +6,9 @@ import { TaskStatusBadge } from '@/components/TaskStatusBadge';
 import { Button } from '@/components/ui';
 import { ApiError, openTaskAttachment } from '@/lib/api';
 import { formatDisplayDate } from '@/lib/dates';
+import { recurrenceLabel } from '@/lib/recurrence';
 import { taskStatusLabel } from '@/lib/taskStatus';
-import type { Task } from '@/lib/types';
+import type { Task, TaskRecurrenceRef } from '@/lib/types';
 
 type TaskViewModalProps = {
   task: Task | null;
@@ -46,6 +47,14 @@ export function TaskViewModal({ task, open, onClose, onEdit, overdue }: TaskView
 
   const clientName = typeof task.client === 'object' ? task.client.name : '—';
   const serviceName = typeof task.service === 'object' ? task.service.name : '—';
+  const assigneeName =
+    task.assignedTo && typeof task.assignedTo === 'object' && 'name' in task.assignedTo
+      ? task.assignedTo.name
+      : '—';
+  const recurrence =
+    task.recurrenceId && typeof task.recurrenceId === 'object'
+      ? (task.recurrenceId as TaskRecurrenceRef)
+      : null;
 
   return (
     <Modal open={open} onClose={onClose} title="Task details" description={task.taskName} size="lg">
@@ -62,11 +71,17 @@ export function TaskViewModal({ task, open, onClose, onEdit, overdue }: TaskView
               Invoiced
             </span>
           )}
+          {recurrence && (
+            <span className="inline-flex rounded-full border border-brand-200 bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700">
+              Recurring · {recurrenceLabel(recurrence.frequency)}
+            </span>
+          )}
         </div>
 
         <dl className="grid gap-4 sm:grid-cols-2">
           <Detail label="Client" value={clientName} />
           <Detail label="Service" value={serviceName} />
+          <Detail label="Assigned to" value={assigneeName} />
           <Detail label="Start date" value={formatDisplayDate(task.startDate)} />
           <Detail label="Due date" value={formatDisplayDate(task.endDate)} />
           <Detail label="Status" value={taskStatusLabel(task.status)} />

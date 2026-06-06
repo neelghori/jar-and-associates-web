@@ -9,8 +9,6 @@ import { hasCompanyWorkspace, isPlatformAdmin } from '@/lib/roles';
 import { PaymentCharts } from '@/components/PaymentCharts';
 import { PlatformBillingDashboard } from '@/components/PlatformBillingDashboard';
 import { Alert, PageHeader, StatCard } from '@/components/ui';
-import type { PlatformBillingOverview } from '@/lib/platformBilling';
-import { TopBar } from '@/components/Sidebar';
 import type { Client, Company, Invoice, Task, User } from '@/lib/types';
 
 export default function DashboardPage() {
@@ -24,17 +22,15 @@ export default function DashboardPage() {
     billingCompanies: 0,
   });
   const [paymentSummary, setPaymentSummary] = useState<InvoicePaymentSummary | null>(null);
-  const [platformBilling, setPlatformBilling] = useState<PlatformBillingOverview | null>(null);
   const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     async function load() {
       setLoadError('');
       if (isPlatformAdmin(user)) {
-        const [companiesRes, usersRes, billingRes] = await Promise.all([
+        const [companiesRes, usersRes] = await Promise.all([
           api.getCompanies(),
           api.getUsers(),
-          api.getPlatformBillingOverview(),
         ]);
         setStats({
           companies: 1,
@@ -44,7 +40,6 @@ export default function DashboardPage() {
           tasks: 0,
           invoices: 0,
         });
-        setPlatformBilling(billingRes);
         setPaymentSummary(null);
         return;
       }
@@ -85,18 +80,18 @@ export default function DashboardPage() {
   }, [user?.role, user?.company]);
 
   const platformCards = [
-    { label: 'Organization', value: stats.companies, icon: Building2 },
-    { label: 'Users', value: stats.users, icon: Users },
+    { label: 'Organization', value: stats.companies, icon: Building2, href: '/companies' },
+    { label: 'Users', value: stats.users, icon: Users, href: '/users' },
   ];
 
   const companyCards = [
-    { label: 'Clients', value: stats.clients, icon: Users },
-    { label: 'Tasks', value: stats.tasks, icon: ClipboardList },
-    { label: 'Invoices', value: stats.invoices, icon: FileText },
+    { label: 'Clients', value: stats.clients, icon: Users, href: '/clients' },
+    { label: 'Tasks', value: stats.tasks, icon: ClipboardList, href: '/tasks' },
+    { label: 'Invoices', value: stats.invoices, icon: FileText, href: '/invoices' },
     ...(user?.role === 'superadmin'
       ? [
-          { label: 'Companies', value: stats.billingCompanies, icon: Building2 },
-          { label: 'Users', value: stats.users, icon: Users },
+          { label: 'Companies', value: stats.billingCompanies, icon: Building2, href: '/sub-companies' },
+          { label: 'Users', value: stats.users, icon: Users, href: '/users' },
         ]
       : []),
   ];
@@ -105,20 +100,24 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <TopBar title={`Good to see you, ${user?.name}`} />
       <PageHeader
         title="Dashboard"
         subtitle={
           isPlatformAdmin(user)
-            ? 'Review pending collections and outstanding invoices for JAR and Associates.'
-            : 'Track clients, tasks, billing, and payment collection from one place.'
+            ? `Good to see you, ${user?.name}. Review pending collections and outstanding invoices for JAR and Associates.`
+            : `Good to see you, ${user?.name}. Track clients, tasks, billing, and payment collection from one place.`
         }
-        hideLogo
       />
 
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (
-          <StatCard key={card.label} label={card.label} value={card.value} icon={card.icon} />
+          <StatCard
+            key={card.label}
+            label={card.label}
+            value={card.value}
+            icon={card.icon}
+            href={card.href}
+          />
         ))}
       </div>
 
@@ -128,9 +127,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {platformBilling && isPlatformAdmin(user) && (
-        <PlatformBillingDashboard overview={platformBilling} />
-      )}
+      {isPlatformAdmin(user) && <PlatformBillingDashboard />}
 
       {paymentSummary && !isPlatformAdmin(user) && (
         <div className="mt-8">

@@ -1,23 +1,26 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4f8f5;
-  --foreground: #0f1f18;
+  --background: #f5f5f5;
+  --foreground: #000000;
   --surface: #ffffff;
-  --muted: #5c7268;
-  --border: #dce8e0;
-  --brand-50: #f0f7f3;
-  --brand-100: #d8ede3;
-  --brand-200: #b5d9c4;
-  --brand-500: #2a6b4f;
-  --brand-600: #1f4d3a;
-  --brand-700: #163d2e;
-  --brand-800: #0f2a20;
-  --brand-900: #0a1f18;
-  --accent-400: #b5e061;
-  --accent-500: #9acd32;
-  --accent-600: #7cb342;
-  --success: #2d8a5e;
+  --muted: #6b6b6b;
+  --border: #e0e0e0;
+  /* Primary — black (from logo letterforms) */
+  --brand-50: #f7f7f7;
+  --brand-100: #ebebeb;
+  --brand-200: #d4d4d4;
+  --brand-300: #a3a3a3;
+  --brand-500: #525252;
+  --brand-600: #333333;
+  --brand-700: #1a1a1a;
+  --brand-800: #111111;
+  --brand-900: #000000;
+  /* Secondary — lime green (from logo accent) */
+  --accent-400: #6fd15c;
+  --accent-500: #58b947;
+  --accent-600: #47a338;
+  --success: #58b947;
   --danger: #dc2626;
 }
 
@@ -30,6 +33,7 @@
   --color-brand-50: var(--brand-50);
   --color-brand-100: var(--brand-100);
   --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
   --color-brand-500: var(--brand-500);
   --color-brand-600: var(--brand-600);
   --color-brand-700: var(--brand-700);
@@ -40,14 +44,14 @@
   --color-accent-600: var(--accent-600);
   --color-success: var(--success);
   --color-danger: var(--danger);
-  --font-sans: var(--font-jakarta);
-  --font-display: var(--font-nunito);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-inter);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-jakarta), "Segoe UI", Arial, sans-serif;
+  font-family: var(--font-inter), "Segoe UI", Arial, sans-serif;
 }
 
 input, select, textarea, button {
@@ -56,58 +60,81 @@ input, select, textarea, button {
 
 .auth-grid {
   background:
-    radial-gradient(ellipse 80% 60% at 15% 20%, rgba(154, 205, 50, 0.14), transparent 50%),
-    radial-gradient(ellipse 70% 50% at 85% 10%, rgba(31, 77, 58, 0.35), transparent 45%),
-    radial-gradient(ellipse 50% 40% at 60% 90%, rgba(181, 224, 97, 0.08), transparent 40%),
-    linear-gradient(145deg, #0a1f18 0%, #0f2a20 38%, #163d2e 72%, #1f4d3a 100%);
+    radial-gradient(ellipse 70% 55% at 20% 15%, rgba(88, 185, 71, 0.12), transparent 50%),
+    linear-gradient(155deg, #000000 0%, #111111 50%, #1a1a1a 100%);
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(12px);
 }
 
 .dashboard-shell {
-  background:
-    radial-gradient(ellipse 60% 45% at 100% 0%, rgba(154, 205, 50, 0.07), transparent 50%),
-    radial-gradient(ellipse 50% 40% at 0% 100%, rgba(31, 77, 58, 0.05), transparent 45%),
-    linear-gradient(180deg, #f8fbf9 0%, #eef5f0 100%);
+  background: linear-gradient(180deg, #fafafa 0%, #f0f0f0 100%);
 }
 
 .stat-card {
-  background: linear-gradient(165deg, #ffffff 0%, #f5faf7 55%, #eef6f1 100%);
-  border-color: rgba(220, 232, 224, 0.9);
+  background: #ffffff;
+  border-color: var(--border);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .stat-card:hover {
   transform: translateY(-1px);
-  box-shadow: 0 16px 40px rgba(15, 42, 32, 0.07);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
 }
 
 .sidebar-link-active {
-  background: linear-gradient(90deg, rgba(154, 205, 50, 0.18) 0%, rgba(31, 77, 58, 0.22) 100%);
+  background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
-  border: 1px solid rgba(181, 224, 97, 0.2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(88, 185, 71, 0.45);
+  border-left: 3px solid var(--accent-500);
+  box-shadow: inset 0 0 0 1px rgba(88, 185, 71, 0.1);
 }
 
 .table-head {
-  background: linear-gradient(180deg, #f6faf8 0%, #ecf4ef 100%);
+  background: #fafafa;
 }
 
 .bento-card {
-  background: linear-gradient(165deg, #ffffff 0%, #f8fbf9 100%);
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 1.25rem;
-  box-shadow: 0 12px 36px rgba(15, 42, 32, 0.04);
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
 }
 
 .accent-glow {
-  box-shadow: 0 8px 28px rgba(154, 205, 50, 0.22);
+  box-shadow: 0 4px 20px rgba(88, 185, 71, 0.3);
 }
 
 .font-display {
-  font-family: var(--font-nunito), var(--font-jakarta), "Segoe UI", sans-serif;
+  font-family: var(--font-inter), "Segoe UI", sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.auth-form-card label > span {
+  font-size: 0.9375rem;
+}
+
+.auth-form-card input {
+  padding-top: 0.875rem;
+  padding-bottom: 0.875rem;
+  font-size: 1rem;
+}
+
+.auth-form-card button[type="submit"] {
+  padding-top: 0.875rem;
+  padding-bottom: 0.875rem;
+  font-size: 1rem;
+}
+
+.link-secondary {
+  color: var(--brand-900);
+  transition: color 0.15s ease;
+}
+
+.link-secondary:hover {
+  color: var(--accent-600);
 }

@@ -1,14 +1,16 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Building2, ImagePlus, Plus, Trash2 } from 'lucide-react';
 import { api, ApiError, fetchSubCompanyLogoBlob } from '@/lib/api';
 import { CompanyRequired } from '@/components/CompanyRequired';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Modal } from '@/components/Modal';
 import { RowActions } from '@/components/RowActions';
+import { Pagination } from '@/components/Pagination';
 import { EmptyTableRow, TableToolbar } from '@/components/TableToolbar';
-import { filterBySearch } from '@/lib/filterList';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
+import { mapPaginatedList } from '@/lib/listApi';
 import {
   getPanError,
   getTanError,
@@ -58,8 +60,23 @@ function subCompanyToForm(item: SubCompany) {
 
 export default function SubCompaniesPage() {
   const { user } = useAuth();
-  const [subCompanies, setSubCompanies] = useState<SubCompany[]>([]);
-  const [search, setSearch] = useState('');
+  const fetchSubCompanies = useCallback(
+    async (params: Record<string, string>) =>
+      mapPaginatedList<SubCompany>('subCompanies', await api.getSubCompanies(params)),
+    []
+  );
+  const {
+    items: subCompanies,
+    search,
+    setSearch,
+    page,
+    setPage,
+    total,
+    totalPages,
+    limit,
+    loading: listLoading,
+    reload,
+  } = usePaginatedList({ fetchList: fetchSubCompanies });
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<SubCompany | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SubCompany | null>(null);
@@ -89,15 +106,6 @@ export default function SubCompaniesPage() {
     if (blob) setLogoPreview(URL.createObjectURL(blob));
   }
 
-  async function loadSubCompanies() {
-    const res = await api.getSubCompanies();
-    setSubCompanies(res.subCompanies as SubCompany[]);
-  }
-
-  useEffect(() => {
-    loadSubCompanies().catch(console.error);
-  }, []);
-
   useEffect(() => {
     return () => {
       if (logoPreview?.startsWith('blob:')) {
@@ -105,19 +113,6 @@ export default function SubCompaniesPage() {
       }
     };
   }, [logoPreview]);
-
-  const filtered = useMemo(
-    () =>
-      filterBySearch(subCompanies, search, (item) => [
-        item.name,
-        item.email,
-        item.mobile,
-        item.pan,
-        item.tan,
-        item.bankName,
-      ]),
-    [subCompanies, search]
-  );
 
   function openCreate() {
     setEditing(null);
@@ -164,7 +159,7 @@ export default function SubCompaniesPage() {
       await api.deleteSubCompanyLogo(editing.id);
       clearLogoPreview();
       setEditing({ ...editing, hasLogo: false });
-      await loadSubCompanies();
+      await reload();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to remove logo');
     } finally {
@@ -206,7 +201,7 @@ export default function SubCompaniesPage() {
       }
 
       closeForm();
-      await loadSubCompanies();
+      await reload();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to save company');
     } finally {
@@ -222,7 +217,7 @@ export default function SubCompaniesPage() {
       await api.deleteSubCompany(deleteTarget.id);
       setSuccess('Company deleted successfully');
       setDeleteTarget(null);
-      await loadSubCompanies();
+      await reload();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to delete company');
       setDeleteTarget(null);
@@ -269,12 +264,14 @@ export default function SubCompaniesPage() {
             search={search}
             onSearchChange={setSearch}
             placeholder="Search by name, email, or bank..."
-            total={subCompanies.length}
-            filtered={filtered.length}
+            total={total}
+            page={page}
+            limit={limit}
+            loading={listLoading}
           />
 
           <Table headers={['Name', 'Email', 'Mobile', 'Bank', 'Logo', 'CA Firm', ...(canManage ? ['Actions'] : [])]}>
-            {filtered.length === 0 ? (
+            {!listLoading && subCompanies.length === 0 ? (
               <EmptyTableRow
                 colSpan={canManage ? 7 : 6}
                 message={
@@ -284,7 +281,7 @@ export default function SubCompaniesPage() {
                 }
               />
             ) : (
-              filtered.map((item) => (
+              subCompanies.map((item) => (
                 <tr key={item.id} className="hover:bg-brand-50/50">
                   <td className="px-4 py-3 font-medium text-brand-800">{item.name}</td>
                   <td className="px-4 py-3">{item.email}</td>
@@ -301,6 +298,14 @@ export default function SubCompaniesPage() {
               ))
             )}
           </Table>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            limit={limit}
+            onPageChange={setPage}
+            disabled={listLoading}
+          />
         </Card>
 
         <Modal

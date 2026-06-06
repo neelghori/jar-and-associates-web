@@ -4,7 +4,6 @@ import { FormEvent, useState } from 'react';
 import { KeyRound } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
-import { TopBar } from '@/components/Sidebar';
 import { Alert, Button, Card, Input, PageHeader } from '@/components/ui';
 
 export default function AccountPage() {
@@ -47,8 +46,6 @@ export default function AccountPage() {
 
   return (
     <div>
-      <TopBar title="Account settings" />
-
       <PageHeader
         title="Change password"
         subtitle="Update the password for your logged-in account."

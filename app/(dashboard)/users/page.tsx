@@ -1,24 +1,40 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
-import { filterBySearch } from '@/lib/filterList';
 import { canManageCompanyUsers, isPlatformAdmin } from '@/lib/roles';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Modal } from '@/components/Modal';
+import { Pagination } from '@/components/Pagination';
 import { RowActions } from '@/components/RowActions';
 import { EmptyTableRow, TableToolbar } from '@/components/TableToolbar';
+import { usePaginatedList } from '@/hooks/usePaginatedList';
+import { mapPaginatedList } from '@/lib/listApi';
 import { Alert, Button, Card, Input, PageHeader, Select, Table } from '@/components/ui';
-import { TopBar } from '@/components/Sidebar';
 import type { Company, User } from '@/lib/types';
 
 export default function UsersPage() {
   const { user: currentUser } = useAuth();
-  const [users, setUsers] = useState<User[]>([]);
+  const canManage = canManageCompanyUsers(currentUser);
+  const fetchUsers = useCallback(
+    async (params: Record<string, string>) => mapPaginatedList<User>('users', await api.getUsers(params)),
+    []
+  );
+  const {
+    items: users,
+    search,
+    setSearch,
+    page,
+    setPage,
+    total,
+    totalPages,
+    limit,
+    loading: listLoading,
+    reload,
+  } = usePaginatedList({ fetchList: fetchUsers, enabled: canManage });
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
@@ -36,14 +52,8 @@ export default function UsersPage() {
 
   const platformView = isPlatformAdmin(currentUser);
 
-  async function loadUsers() {
-    const res = await api.getUsers();
-    setUsers(res.users as User[]);
-  }
-
   useEffect(() => {
-    if (!canManageCompanyUsers(currentUser)) return;
-    loadUsers().catch(console.error);
+    if (!canManage) return;
     if (platformView) {
       api
         .getCompanies()
@@ -56,7 +66,7 @@ export default function UsersPage() {
         })
         .catch(console.error);
     }
-  }, [currentUser?.role, platformView]);
+  }, [canManage, platformView]);
 
   function companyLabel(entry: User) {
     if (!entry.company) return '—';
@@ -64,19 +74,7 @@ export default function UsersPage() {
     return `${entry.company.companyCode} — ${entry.company.name}`;
   }
 
-  const filteredUsers = useMemo(
-    () =>
-      filterBySearch(users, search, (entry) => [
-        entry.name,
-        entry.email,
-        entry.role,
-        companyLabel(entry),
-        entry.isActive ? 'active' : 'inactive',
-      ]),
-    [users, search]
-  );
-
-  if (!canManageCompanyUsers(currentUser)) {
+  if (!canManage) {
     return <Alert message="You do not have permission to manage users." />;
   }
 
@@ -145,7 +143,7 @@ export default function UsersPage() {
         setSuccess('User created successfully');
       }
       closeForm();
-      await loadUsers();
+      await reload();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to save user');
     } finally {
@@ -160,7 +158,7 @@ export default function UsersPage() {
       await api.deleteUser(deleteTarget.id);
       setSuccess('User deactivated successfully');
       setDeleteTarget(null);
-      await loadUsers();
+      await reload();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to delete user');
       setDeleteTarget(null);
@@ -171,9 +169,7 @@ export default function UsersPage() {
 
   return (
     <div>
-      <TopBar title={platformView ? 'Manage users across companies' : 'Manage your company team'} />
       <PageHeader
-        hideLogo
         title="Users"
         subtitle={
           platformView
@@ -196,18 +192,20 @@ export default function UsersPage() {
           search={search}
           onSearchChange={setSearch}
           placeholder="Search by name, email, role, or company..."
-          total={users.length}
-          filtered={filteredUsers.length}
+          total={total}
+          page={page}
+          limit={limit}
+          loading={listLoading}
         />
 
         <Table headers={['Name', 'Email', 'Role', 'Company', 'Status', 'Actions']}>
-          {filteredUsers.length === 0 ? (
+          {!listLoading && users.length === 0 ? (
             <EmptyTableRow
               colSpan={6}
               message={search ? 'No users match your search.' : 'No users yet. Click Add User to create one.'}
             />
           ) : (
-            filteredUsers.map((entry) => (
+            users.map((entry) => (
               <tr key={entry.id} className="hover:bg-brand-50/50">
                 <td className="px-4 py-3 font-medium text-brand-800">{entry.name}</td>
                 <td className="px-4 py-3">{entry.email}</td>
@@ -232,6 +230,14 @@ export default function UsersPage() {
             ))
           )}
         </Table>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          limit={limit}
+          onPageChange={setPage}
+          disabled={listLoading}
+        />
       </Card>
 
       <Modal
