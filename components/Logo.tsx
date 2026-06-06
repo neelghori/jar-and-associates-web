@@ -13,12 +13,12 @@ type LogoProps = {
 };
 
 const heights = {
-  xs: 32,
-  sm: 40,
-  md: 48,
-  lg: 64,
-  xl: 80,
-  '2xl': 96,
+  xs: 40,
+  sm: 52,
+  md: 62,
+  lg: 82,
+  xl: 102,
+  '2xl': 120,
 } as const;
 
 /** JAR wordmark aspect ratio (~830 × 287) */
@@ -78,7 +78,7 @@ export function LogoMark({
   href?: string;
   onDark?: boolean;
 }) {
-  const height = 28;
+  const height = 38;
   const width = Math.round(height * LOGO_ASPECT);
 
   const content = (

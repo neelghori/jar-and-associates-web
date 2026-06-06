@@ -30,7 +30,7 @@ export function AuthShell({ children, title, subtitle }: AuthShellProps) {
 
         <div className="relative z-10 flex w-full max-w-xl flex-col gap-8 px-10 py-8 text-white xl:max-w-2xl xl:gap-10 xl:px-14">
           <div>
-            <Logo size="xl" onDark priority />
+            <Logo size="2xl" onDark priority />
             <h1 className="font-display mt-8 text-3xl leading-tight xl:text-4xl">
               Manage billing, clients, and tasks with clarity.
             </h1>
@@ -63,7 +63,7 @@ export function AuthShell({ children, title, subtitle }: AuthShellProps) {
 
         <div className="relative w-full max-w-md">
           <div className="mb-8 flex w-full flex-col items-center text-center">
-            <Logo size="xl" priority centered className="mb-5" />
+            <Logo size="2xl" priority centered className="mb-5" />
             <h2 className="font-display text-3xl text-brand-900">{title}</h2>
             <p className="mt-2 max-w-sm text-base leading-relaxed text-muted">{subtitle}</p>
           </div>

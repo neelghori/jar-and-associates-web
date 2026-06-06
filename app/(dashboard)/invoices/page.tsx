@@ -40,7 +40,7 @@ function emptyMilestoneForm(index: number): MilestoneForm {
 }
 
 type LineAmounts = Record<string, string>;
-type LineSacCodes = Record<string, string>;
+type LineOrders = Record<string, string>;
 
 type EditLine = {
   taskId: string;
@@ -48,6 +48,7 @@ type EditLine = {
   description: string;
   sacCode: string;
   amount: string;
+  order: string;
 };
 
 function normalizeSacInput(value: string) {
@@ -58,6 +59,28 @@ function isValidSac(value: string) {
   const v = value.trim();
   if (!v) return true;
   return /^\d{4,6}$/.test(v);
+}
+
+function parseLineOrder(value: string, fallback: number) {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+function sortTaskIdsByOrder(taskIds: string[], orders: LineOrders) {
+  return [...taskIds].sort((a, b) => {
+    const orderA = parseLineOrder(orders[a] ?? '', taskIds.indexOf(a) + 1);
+    const orderB = parseLineOrder(orders[b] ?? '', taskIds.indexOf(b) + 1);
+    if (orderA !== orderB) return orderA - orderB;
+    return taskIds.indexOf(a) - taskIds.indexOf(b);
+  });
+}
+
+function sortEditLinesByOrder(lines: EditLine[]) {
+  return [...lines].sort(
+    (a, b) =>
+      parseLineOrder(a.order, 1) - parseLineOrder(b.order, 1) ||
+      lines.indexOf(a) - lines.indexOf(b)
+  );
 }
 
 function taskIdFromLine(item: Invoice['lineItems'][number]) {
@@ -106,8 +129,7 @@ export default function InvoicesPage() {
   const [subCompanyId, setSubCompanyId] = useState('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [lineAmounts, setLineAmounts] = useState<LineAmounts>({});
-  const [lineSacCodes, setLineSacCodes] = useState<LineSacCodes>({});
-  const [defaultSac, setDefaultSac] = useState('');
+  const [lineOrders, setLineOrders] = useState<LineOrders>({});
   const [invoiceDate, setInvoiceDate] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [error, setError] = useState('');
@@ -132,12 +154,6 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     api.getClients().then((res) => setClients(res.clients as Client[])).catch(console.error);
-    api.getCompanies()
-      .then((res) => {
-        const list = res.companies as Company[];
-        if (list[0]?.sacCode) setDefaultSac(list[0].sacCode);
-      })
-      .catch(console.error);
     api.getSubCompanies()
       .then((res) => setSubCompanies(res.subCompanies as SubCompany[]))
       .catch(console.error);
@@ -145,17 +161,11 @@ export default function InvoicesPage() {
   }, []);
 
   useEffect(() => {
-    if (!subCompanyId) return;
-    const selected = subCompanies.find((sc) => sc.id === subCompanyId);
-    if (selected?.sacCode) setDefaultSac(selected.sacCode);
-  }, [subCompanyId, subCompanies]);
-
-  useEffect(() => {
     if (!clientId) {
       setTasks([]);
       setSelectedTasks([]);
       setLineAmounts({});
-      setLineSacCodes({});
+      setLineOrders({});
       return;
     }
     api
@@ -167,7 +177,7 @@ export default function InvoicesPage() {
       .catch(console.error);
     setSelectedTasks([]);
     setLineAmounts({});
-    setLineSacCodes({});
+    setLineOrders({});
   }, [clientId]);
 
   const invoiceTotal = useMemo(
@@ -197,8 +207,8 @@ export default function InvoicesPage() {
           delete copy[id];
           return copy;
         });
-        setLineSacCodes((codes) => {
-          const copy = { ...codes };
+        setLineOrders((orders) => {
+          const copy = { ...orders };
           delete copy[id];
           return copy;
         });
@@ -210,10 +220,13 @@ export default function InvoicesPage() {
           ...amounts,
           [id]: amounts[id] ?? (task.amount > 0 ? String(task.amount) : ''),
         }));
-        setLineSacCodes((codes) => ({
-          ...codes,
-          [id]: codes[id] ?? defaultSac,
-        }));
+        setLineOrders((orders) => {
+          const maxOrder = Object.values(orders).reduce(
+            (max, value) => Math.max(max, parseLineOrder(value, 0)),
+            0
+          );
+          return { ...orders, [id]: String(maxOrder + 1) };
+        });
       }
       return [...prev, id];
     });
@@ -223,9 +236,25 @@ export default function InvoicesPage() {
     setLineAmounts((prev) => ({ ...prev, [taskId]: value }));
   }
 
-  function setSacCode(taskId: string, value: string) {
-    setLineSacCodes((prev) => ({ ...prev, [taskId]: normalizeSacInput(value) }));
+  function setLineOrder(taskId: string, value: string) {
+    const digits = value.replace(/\D/g, '').slice(0, 3);
+    setLineOrders((prev) => ({ ...prev, [taskId]: digits }));
   }
+
+  function setEditLineOrder(index: number, value: string) {
+    const digits = value.replace(/\D/g, '').slice(0, 3);
+    setEditLines((prev) =>
+      prev.map((line, i) => (i === index ? { ...line, order: digits } : line))
+    );
+  }
+
+  const invoiceOrderPreview = useMemo(
+    () =>
+      sortTaskIdsByOrder(selectedTasks, lineOrders)
+        .map((id) => tasks.find((t) => t._id === id))
+        .filter((task): task is Task => Boolean(task)),
+    [selectedTasks, lineOrders, tasks]
+  );
 
   async function openEdit(invoice: Invoice) {
     setError('');
@@ -237,12 +266,13 @@ export default function InvoicesPage() {
       setEditInvoiceDate(toDateInput(inv.invoiceDate));
       setEditIssuanceDate(toDateInput(inv.issuanceDate));
       setEditLines(
-        inv.lineItems.map((li) => ({
+        inv.lineItems.map((li, index) => ({
           taskId: taskIdFromLine(li),
           taskName: typeof li.task === 'object' ? li.task.taskName : '',
           description: li.description,
           sacCode: li.sacCode ?? '',
           amount: String(li.amount),
+          order: String(index + 1),
         }))
       );
       setShowEdit(true);
@@ -276,18 +306,19 @@ export default function InvoicesPage() {
       return;
     }
 
-    const lineItems = selectedTasks.map((taskId) => {
+    const orderedTaskIds = sortTaskIdsByOrder(selectedTasks, lineOrders);
+    if (orderedTaskIds.some((id) => !lineOrders[id]?.trim())) {
+      setError('Enter an order number (1, 2, 3…) for each selected task');
+      return;
+    }
+
+    const lineItems = orderedTaskIds.map((taskId) => {
       const amount = parseFloat(lineAmounts[taskId] || '');
-      const sacCode = lineSacCodes[taskId]?.trim() || undefined;
-      return { taskId, amount, sacCode };
+      return { taskId, amount };
     });
 
     if (lineItems.some((item) => !Number.isFinite(item.amount) || item.amount < 0)) {
       setError('Enter a valid amount (₹) for each selected task');
-      return;
-    }
-    if (selectedTasks.some((id) => !isValidSac(lineSacCodes[id] || ''))) {
-      setError('SAC code must be 4–6 digits when provided');
       return;
     }
 
@@ -303,7 +334,7 @@ export default function InvoicesPage() {
       setSuccess('Invoice generated successfully');
       setSelectedTasks([]);
       setLineAmounts({});
-      setLineSacCodes({});
+      setLineOrders({});
       setClientId('');
       setSubCompanyId('');
       setInvoiceDate('');
@@ -325,7 +356,13 @@ export default function InvoicesPage() {
     setError('');
     setSuccess('');
 
-    const lineItems = editLines.map((line) => ({
+    if (editLines.some((line) => !line.order.trim())) {
+      setError('Enter an order number (1, 2, 3…) for each line item');
+      return;
+    }
+
+    const sortedLines = sortEditLinesByOrder(editLines);
+    const lineItems = sortedLines.map((line) => ({
       taskId: line.taskId,
       description: line.description.trim(),
       sacCode: line.sacCode.trim() || undefined,
@@ -731,11 +768,14 @@ export default function InvoicesPage() {
                         {selected && (
                           <div className="mt-3 grid gap-3 pl-6 sm:grid-cols-2">
                             <Input
-                              label="SAC code"
-                              value={lineSacCodes[task._id] ?? ''}
-                              onChange={(e) => setSacCode(task._id, e.target.value)}
-                              placeholder={defaultSac ? `e.g. ${defaultSac}` : 'e.g. 9982'}
-                              maxLength={6}
+                              label="Order on invoice"
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={lineOrders[task._id] ?? ''}
+                              onChange={(e) => setLineOrder(task._id, e.target.value)}
+                              placeholder="1"
+                              required
                             />
                             <Input
                               label="Amount (₹)"
@@ -751,6 +791,28 @@ export default function InvoicesPage() {
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {selectedTasks.length > 0 && (
+              <div>
+                <p className="mb-2 text-sm font-medium text-brand-800">Invoice line order preview</p>
+                <p className="mb-3 text-xs text-muted">
+                  Set order as 1, 2, 3… on each task above. The PDF uses this sequence for SN numbers.
+                </p>
+                <div className="space-y-2 rounded-xl border border-border p-3">
+                  {invoiceOrderPreview.map((task) => (
+                    <div
+                      key={task._id}
+                      className="flex items-center gap-3 rounded-lg border border-brand-200 bg-brand-50/40 px-3 py-2"
+                    >
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-900 text-xs font-bold text-white">
+                        {lineOrders[task._id] || '—'}
+                      </span>
+                      <span className="min-w-0 flex-1 text-sm font-medium text-brand-800">{task.taskName}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -807,11 +869,26 @@ export default function InvoicesPage() {
 
             <div>
               <p className="mb-2 text-sm font-medium text-brand-800">Line items</p>
+              <p className="mb-3 text-xs text-muted">
+                Set order as 1, 2, 3… for each line. The PDF uses this sequence for SN numbers.
+              </p>
               <div className="space-y-3">
                 {editLines.map((line, index) => (
                   <div key={line.taskId} className="rounded-lg border border-border p-3">
-                    <p className="mb-2 text-sm font-medium text-brand-800">{line.taskName || `Task ${index + 1}`}</p>
+                    <p className="mb-2 text-sm font-medium text-brand-800">
+                      {line.taskName || `Task ${index + 1}`}
+                    </p>
                     <div className="grid gap-3 sm:grid-cols-2">
+                      <Input
+                        label="Order on invoice"
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={line.order}
+                        onChange={(e) => setEditLineOrder(index, e.target.value)}
+                        placeholder="1"
+                        required
+                      />
                       <div className="sm:col-span-2">
                       <Input
                         label="Particulars (description on PDF)"

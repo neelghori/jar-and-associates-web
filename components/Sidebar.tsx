@@ -92,7 +92,7 @@ export function Sidebar() {
   return (
     <aside className="flex min-h-screen w-72 shrink-0 flex-col border-r border-white/10 bg-brand-900 text-white">
       <div className="border-b border-white/10 px-5 py-6">
-        <Logo size="lg" onDark href={getHomePath(user)} priority />
+        <Logo size="xl" onDark href={getHomePath(user)} priority />
         <p className="mt-3 text-xs font-bold uppercase tracking-[0.22em] text-accent-500">
           {isPlatformAdmin(user) ? 'Platform Admin' : employeeView ? 'My Tasks' : 'Billing Suite'}
         </p>

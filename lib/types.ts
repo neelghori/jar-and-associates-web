@@ -77,7 +77,7 @@ export interface Service {
   company: string;
   name: string;
   description?: string;
-  defaultAmount?: number;
+  sacCode?: string;
   isActive: boolean;
 }
 
@@ -91,7 +91,7 @@ export interface Task {
   _id: string;
   company: string;
   client: { _id: string; name: string } | string;
-  service: { _id: string; name: string } | string;
+  service: { _id: string; name: string; sacCode?: string } | string;
   taskName: string;
   startDate: string;
   endDate: string;

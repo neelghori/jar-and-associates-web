@@ -14,6 +14,14 @@ import { mapPaginatedList } from '@/lib/listApi';
 import { Alert, Button, Card, Input, PageHeader, Table } from '@/components/ui';
 import type { Service } from '@/lib/types';
 
+function normalizeSacInput(value: string) {
+  return value.replace(/\D/g, '').slice(0, 6);
+}
+
+function isValidSac(value: string) {
+  return /^\d{4,6}$/.test(value.trim());
+}
+
 export default function ServicesPage() {
   const fetchServices = useCallback(
     async (params: Record<string, string>) => mapPaginatedList<Service>('services', await api.getServices(params)),
@@ -35,7 +43,7 @@ export default function ServicesPage() {
   const [editing, setEditing] = useState<Service | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Service | null>(null);
   const [name, setName] = useState('');
-  const [defaultAmount, setDefaultAmount] = useState('');
+  const [sacCode, setSacCode] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -44,7 +52,7 @@ export default function ServicesPage() {
   function openCreate() {
     setEditing(null);
     setName('');
-    setDefaultAmount('');
+    setSacCode('');
     setError('');
     setShowForm(true);
   }
@@ -52,7 +60,7 @@ export default function ServicesPage() {
   function openEdit(service: Service) {
     setEditing(service);
     setName(service.name);
-    setDefaultAmount(service.defaultAmount != null ? String(service.defaultAmount) : '');
+    setSacCode(service.sacCode ?? '');
     setError('');
     setShowForm(true);
   }
@@ -61,7 +69,7 @@ export default function ServicesPage() {
     setShowForm(false);
     setEditing(null);
     setName('');
-    setDefaultAmount('');
+    setSacCode('');
     setError('');
   }
 
@@ -69,9 +77,16 @@ export default function ServicesPage() {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    const normalizedSac = normalizeSacInput(sacCode);
+    if (!isValidSac(normalizedSac)) {
+      setError('SAC code must be 4–6 digits');
+      return;
+    }
+
     setLoading(true);
     try {
-      const payload = { name, defaultAmount: defaultAmount ? Number(defaultAmount) : 0 };
+      const payload = { name, sacCode: normalizedSac };
       if (editing) {
         await api.updateService(editing._id, payload);
         setSuccess('Service updated successfully');
@@ -132,7 +147,7 @@ export default function ServicesPage() {
             loading={listLoading}
           />
 
-          <Table headers={['Service Name', 'Default Amount', 'Actions']}>
+          <Table headers={['Service Name', 'SAC Code', 'Actions']}>
             {!listLoading && services.length === 0 ? (
               <EmptyTableRow
                 colSpan={3}
@@ -142,7 +157,7 @@ export default function ServicesPage() {
               services.map((service) => (
                 <tr key={service._id} className="hover:bg-brand-50/50">
                   <td className="px-4 py-3 font-medium text-brand-800">{service.name}</td>
-                  <td className="px-4 py-3">₹ {service.defaultAmount?.toFixed(2) || '0.00'}</td>
+                  <td className="px-4 py-3">{service.sacCode || '—'}</td>
                   <td className="px-4 py-3">
                     <RowActions
                       onEdit={() => openEdit(service)}
@@ -167,12 +182,19 @@ export default function ServicesPage() {
           open={showForm}
           onClose={closeForm}
           title={editing ? 'Edit Service' : 'Add Service'}
-          description="Master service for task and invoice line items."
+          description="Each service has a SAC code that appears on invoice line items."
         >
           {error && <div className="mb-4"><Alert message={error} /></div>}
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input label="Service Name" value={name} onChange={(e) => setName(e.target.value)} required />
-            <Input label="Default Amount (optional)" type="number" min="0" step="0.01" value={defaultAmount} onChange={(e) => setDefaultAmount(e.target.value)} />
+            <Input
+              label="SAC Code"
+              value={sacCode}
+              onChange={(e) => setSacCode(normalizeSacInput(e.target.value))}
+              placeholder="e.g. 9982"
+              maxLength={6}
+              required
+            />
             <div className="flex gap-3 pt-2">
               <Button type="button" variant="secondary" className="flex-1" onClick={closeForm}>Cancel</Button>
               <Button type="submit" className="flex-1" disabled={loading}>{loading ? 'Saving...' : editing ? 'Update Service' : 'Save Service'}</Button>

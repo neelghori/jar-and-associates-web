@@ -16,7 +16,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-white/95 px-6 py-4 backdrop-blur-sm lg:px-10">
-            <Logo size="md" href={getHomePath(user)} priority />
+            <Logo size="lg" href={getHomePath(user)} priority />
             <span className="hidden rounded-md border border-accent-500/40 bg-accent-500/10 px-3 py-1.5 text-xs font-bold text-brand-900 sm:inline">
               {employeeView ? 'My Tasks' : 'JAR Billing Suite'}
             </span>
