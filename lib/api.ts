@@ -148,6 +148,16 @@ export const api = {
   },
   deleteSubCompanyLogo: (id: string) =>
     request<{ subCompany: unknown }>(`/sub-companies/${id}/logo`, { method: 'DELETE' }),
+  uploadSubCompanySignature: (id: string, file: File) => {
+    const formData = new FormData();
+    formData.append('signature', file);
+    return request<{ subCompany: unknown }>(`/sub-companies/${id}/signature`, {
+      method: 'PUT',
+      body: formData,
+    });
+  },
+  deleteSubCompanySignature: (id: string) =>
+    request<{ subCompany: unknown }>(`/sub-companies/${id}/signature`, { method: 'DELETE' }),
 
   getClients: (params?: Record<string, string>) => {
     const query = params ? `?${new URLSearchParams(params)}` : '';
@@ -255,6 +265,19 @@ export function subCompanyLogoUrl(id: string) {
 export async function fetchSubCompanyLogoBlob(id: string) {
   const token = getToken();
   const res = await fetch(subCompanyLogoUrl(id), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) return null;
+  return res.blob();
+}
+
+export function subCompanySignatureUrl(id: string) {
+  return `${API_URL}/sub-companies/${id}/signature`;
+}
+
+export async function fetchSubCompanySignatureBlob(id: string) {
+  const token = getToken();
+  const res = await fetch(subCompanySignatureUrl(id), {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   if (!res.ok) return null;

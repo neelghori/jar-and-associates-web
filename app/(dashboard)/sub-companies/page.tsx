@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Building2, ImagePlus, Plus, Trash2 } from 'lucide-react';
-import { api, ApiError, fetchSubCompanyLogoBlob } from '@/lib/api';
+import { api, ApiError, fetchSubCompanyLogoBlob, fetchSubCompanySignatureBlob } from '@/lib/api';
 import { CompanyRequired } from '@/components/CompanyRequired';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Modal } from '@/components/Modal';
@@ -88,6 +88,9 @@ export default function SubCompaniesPage() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoLoading, setLogoLoading] = useState(false);
+  const [signatureFile, setSignatureFile] = useState<File | null>(null);
+  const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
+  const [signatureLoading, setSignatureLoading] = useState(false);
 
   const canManage = isCompanySuperadmin(user);
 
@@ -99,6 +102,14 @@ export default function SubCompaniesPage() {
     setLogoFile(null);
   }
 
+  function clearSignaturePreview() {
+    if (signaturePreview?.startsWith('blob:')) {
+      URL.revokeObjectURL(signaturePreview);
+    }
+    setSignaturePreview(null);
+    setSignatureFile(null);
+  }
+
   async function loadLogoPreview(item: SubCompany) {
     clearLogoPreview();
     if (!item.hasLogo) return;
@@ -106,18 +117,29 @@ export default function SubCompaniesPage() {
     if (blob) setLogoPreview(URL.createObjectURL(blob));
   }
 
+  async function loadSignaturePreview(item: SubCompany) {
+    clearSignaturePreview();
+    if (!item.hasSignature) return;
+    const blob = await fetchSubCompanySignatureBlob(item.id);
+    if (blob) setSignaturePreview(URL.createObjectURL(blob));
+  }
+
   useEffect(() => {
     return () => {
       if (logoPreview?.startsWith('blob:')) {
         URL.revokeObjectURL(logoPreview);
       }
+      if (signaturePreview?.startsWith('blob:')) {
+        URL.revokeObjectURL(signaturePreview);
+      }
     };
-  }, [logoPreview]);
+  }, [logoPreview, signaturePreview]);
 
   function openCreate() {
     setEditing(null);
     setForm(emptyForm);
     clearLogoPreview();
+    clearSignaturePreview();
     setError('');
     setShowForm(true);
   }
@@ -126,9 +148,11 @@ export default function SubCompaniesPage() {
     setEditing(item);
     setForm(subCompanyToForm(item));
     clearLogoPreview();
+    clearSignaturePreview();
     setError('');
     setShowForm(true);
     loadLogoPreview(item).catch(console.error);
+    loadSignaturePreview(item).catch(console.error);
   }
 
   function closeForm() {
@@ -136,6 +160,7 @@ export default function SubCompaniesPage() {
     setEditing(null);
     setForm(emptyForm);
     clearLogoPreview();
+    clearSignaturePreview();
     setError('');
   }
 
@@ -145,6 +170,14 @@ export default function SubCompaniesPage() {
     }
     setLogoFile(file);
     setLogoPreview(file ? URL.createObjectURL(file) : null);
+  }
+
+  function onSignatureSelected(file: File | null) {
+    if (signaturePreview?.startsWith('blob:')) {
+      URL.revokeObjectURL(signaturePreview);
+    }
+    setSignatureFile(file);
+    setSignaturePreview(file ? URL.createObjectURL(file) : null);
   }
 
   async function handleRemoveLogo() {
@@ -164,6 +197,26 @@ export default function SubCompaniesPage() {
       setError(err instanceof ApiError ? err.message : 'Failed to remove logo');
     } finally {
       setLogoLoading(false);
+    }
+  }
+
+  async function handleRemoveSignature() {
+    if (signatureFile || (signaturePreview && !editing?.hasSignature)) {
+      clearSignaturePreview();
+      return;
+    }
+    if (!editing?.hasSignature) return;
+    setSignatureLoading(true);
+    setError('');
+    try {
+      await api.deleteSubCompanySignature(editing.id);
+      clearSignaturePreview();
+      setEditing({ ...editing, hasSignature: false });
+      await reload();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to remove signature');
+    } finally {
+      setSignatureLoading(false);
     }
   }
 
@@ -195,8 +248,13 @@ export default function SubCompaniesPage() {
 
       if (logoFile && savedId) {
         await api.uploadSubCompanyLogo(savedId, logoFile);
+      }
+      if (signatureFile && savedId) {
+        await api.uploadSubCompanySignature(savedId, signatureFile);
+      }
+      if (logoFile || signatureFile) {
         setSuccess(
-          editing ? 'Company and logo updated successfully' : 'Company created with logo successfully'
+          editing ? 'Company updated successfully' : 'Company created successfully'
         );
       }
 
@@ -270,10 +328,10 @@ export default function SubCompaniesPage() {
             loading={listLoading}
           />
 
-          <Table headers={['Name', 'Email', 'Mobile', 'Bank', 'Logo', 'CA Firm', ...(canManage ? ['Actions'] : [])]}>
+          <Table headers={['Name', 'Email', 'Mobile', 'Bank', 'Logo', 'Signature', 'CA Firm', ...(canManage ? ['Actions'] : [])]}>
             {!listLoading && subCompanies.length === 0 ? (
               <EmptyTableRow
-                colSpan={canManage ? 7 : 6}
+                colSpan={canManage ? 8 : 7}
                 message={
                   search
                     ? 'No companies match your search.'
@@ -288,6 +346,7 @@ export default function SubCompaniesPage() {
                   <td className="px-4 py-3">{item.mobile}</td>
                   <td className="px-4 py-3">{item.bankName}</td>
                   <td className="px-4 py-3">{item.hasLogo ? 'Yes' : '—'}</td>
+                  <td className="px-4 py-3">{item.hasSignature ? 'Yes' : '—'}</td>
                   <td className="px-4 py-3">{item.isCharteredAccountant ? 'Yes' : 'No'}</td>
                   {canManage && (
                     <td className="px-4 py-3">
@@ -312,7 +371,7 @@ export default function SubCompaniesPage() {
           open={showForm}
           onClose={closeForm}
           title={editing ? 'Edit company' : 'Add company'}
-          description="Details appear on the invoice PDF. Upload a logo to show it top-left on invoices."
+          description="Details appear on the invoice PDF. Upload a logo and signature image for invoices."
           size="xl"
         >
           {error && (
@@ -350,6 +409,40 @@ export default function SubCompaniesPage() {
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       Remove logo
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="sm:col-span-2 rounded-xl border border-border bg-brand-50/40 p-4">
+              <p className="mb-3 text-sm font-medium text-brand-800">Signature (invoice bottom-right)</p>
+              <div className="flex flex-wrap items-start gap-4">
+                <div className="flex h-20 w-32 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-border bg-white">
+                  {signaturePreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={signaturePreview} alt="Signature preview" className="h-full w-full object-contain" />
+                  ) : (
+                    <ImagePlus className="h-8 w-8 text-muted" />
+                  )}
+                </div>
+                <div className="flex min-w-[200px] flex-1 flex-col gap-2">
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg"
+                    onChange={(e) => onSignatureSelected(e.target.files?.[0] ?? null)}
+                    className="text-sm text-brand-800 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-800"
+                  />
+                  <p className="text-xs text-muted">PNG or JPG only. Max 2 MB. Shown above (Proprietor) on invoice PDF.</p>
+                  {(signaturePreview || editing?.hasSignature) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-8 w-fit px-2 text-xs text-danger"
+                      disabled={signatureLoading}
+                      onClick={handleRemoveSignature}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Remove signature
                     </Button>
                   )}
                 </div>

@@ -29,6 +29,7 @@ export interface SubCompany {
   isCharteredAccountant: boolean;
   isActive: boolean;
   hasLogo?: boolean;
+  hasSignature?: boolean;
 }
 
 export interface Company {
