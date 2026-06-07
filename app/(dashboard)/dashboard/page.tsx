@@ -80,7 +80,7 @@ export default function DashboardPage() {
   }, [user?.role, user?.company]);
 
   const platformCards = [
-    { label: 'Organization', value: stats.companies, icon: Building2, href: '/companies' },
+    { label: 'Organization', value: stats.companies, icon: Building2, href: '/account/organization' },
     { label: 'Users', value: stats.users, icon: Users, href: '/users' },
   ];
 

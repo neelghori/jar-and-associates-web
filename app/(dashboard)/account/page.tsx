@@ -1,108 +1,64 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
-import { KeyRound } from 'lucide-react';
-import { api, ApiError } from '@/lib/api';
+import { UserCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { Alert, Button, Card, Input, PageHeader } from '@/components/ui';
+import { Card } from '@/components/ui';
 
-export default function AccountPage() {
+function userInitials(name?: string) {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+export default function ProfilePage() {
   const { user } = useAuth();
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    if (newPassword !== confirmPassword) {
-      setError('New password and confirmation do not match');
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      setError('New password must be at least 8 characters');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await api.changePassword(currentPassword, newPassword);
-      setSuccess(res.message);
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to change password');
-    } finally {
-      setLoading(false);
-    }
-  }
 
   return (
     <div>
-      <PageHeader
-        title="Change password"
-        subtitle="Update the password for your logged-in account."
-      />
-
-      {error && (
-        <div className="mb-4">
-          <Alert message={error} />
-        </div>
-      )}
-      {success && (
-        <div className="mb-4">
-          <Alert message={success} type="success" />
-        </div>
-      )}
+      <div className="mb-4">
+        <h2 className="text-lg font-semibold text-brand-900">Profile</h2>
+        <p className="text-sm text-muted">Your account details for this workspace.</p>
+      </div>
 
       <Card className="max-w-lg">
-        <div className="mb-4 flex items-center gap-3 rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-700">
-          <KeyRound className="h-5 w-5 shrink-0" />
-          <div>
-            <p className="font-medium">{user?.name}</p>
-            <p className="text-brand-600">{user?.email}</p>
+        <div className="flex items-center gap-4">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent-500 to-brand-700 text-lg font-semibold text-white">
+            {userInitials(user?.name)}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-lg font-semibold text-brand-900">{user?.name}</p>
+            <p className="truncate text-sm text-muted">{user?.email}</p>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            label="Current password"
-            type="password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            required
-            autoComplete="current-password"
-          />
-          <Input
-            label="New password"
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            required
-            minLength={8}
-            autoComplete="new-password"
-          />
-          <Input
-            label="Confirm new password"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-            minLength={8}
-            autoComplete="new-password"
-          />
-          <p className="text-xs text-muted">Use at least 8 characters. Choose a password you do not use elsewhere.</p>
-          <Button type="submit" disabled={loading} className="w-full sm:w-auto">
-            {loading ? 'Updating...' : 'Update password'}
-          </Button>
-        </form>
+        <dl className="mt-6 grid gap-4 sm:grid-cols-2">
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted">Role</dt>
+            <dd className="mt-1 text-sm font-medium capitalize text-brand-900">
+              {user?.role?.replace('_', ' ')}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted">Status</dt>
+            <dd className="mt-1 text-sm font-medium text-brand-900">
+              {user?.isActive ? 'Active' : 'Inactive'}
+            </dd>
+          </div>
+          {typeof user?.company === 'object' && user.company && (
+            <div className="sm:col-span-2">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted">Organization</dt>
+              <dd className="mt-1 text-sm font-medium text-brand-900">
+                {user.company.companyCode} — {user.company.name}
+              </dd>
+            </div>
+          )}
+        </dl>
+
+        <div className="mt-6 flex items-start gap-3 rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-700">
+          <UserCircle className="mt-0.5 h-5 w-5 shrink-0" />
+          <p>Use the menu above to change your password or manage organization settings.</p>
+        </div>
       </Card>
     </div>
   );

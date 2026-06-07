@@ -314,7 +314,8 @@ export default function SubCompaniesPage() {
         <Card>
           <div className="mb-4 flex items-center gap-3 rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-700">
             <Building2 className="h-5 w-5 shrink-0" />
-            The main organization ({DEFAULT_COMPANY_NAME}) is under Organization. These companies are
+            The main organization ({DEFAULT_COMPANY_NAME}) is under Profile → Organization. These
+            companies are
             used on invoice PDFs when you bill under a specific firm or branch.
           </div>
 
