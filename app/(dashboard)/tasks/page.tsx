@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
@@ -21,10 +21,18 @@ import {
   isDateBeforeToday,
   toDateInputValue,
 } from '@/lib/dates';
-import { normalizeTaskStatus, type TaskStatus } from '@/lib/taskStatus';
+import {
+  TASK_STATUSES,
+  TASK_STATUS_STYLES,
+  normalizeTaskStatus,
+  taskStatusLabel,
+  type TaskStatus,
+} from '@/lib/taskStatus';
 import { isCompanySuperadmin, isEmployee } from '@/lib/roles';
 import { RECURRENCE_OPTIONS, recurrenceLabel, type RecurrenceFrequency, type TaskType } from '@/lib/recurrence';
 import type { Client, Service, Task, TaskRecurrenceRef, User } from '@/lib/types';
+
+const DEFAULT_STATUS_FILTERS: TaskStatus[] = ['todo', 'inprogress'];
 
 const emptyForm = {
   client: '', service: '', taskName: '', startDate: '', endDate: '', description: '',
@@ -57,6 +65,7 @@ function recurrenceFromTask(task: Task): TaskRecurrenceRef | null {
 }
 
 function isTaskOverdue(task: Task) {
+  if (normalizeTaskStatus(task.status) === 'completed') return false;
   return isDateBeforeToday(task.endDate);
 }
 
@@ -88,6 +97,11 @@ export default function TasksPage() {
   const employeeView = isEmployee(user);
   const canManage = isCompanySuperadmin(user);
   const canAssign = canManage;
+  const [statusFilters, setStatusFilters] = useState<TaskStatus[]>(DEFAULT_STATUS_FILTERS);
+  const taskExtraParams = useMemo((): Record<string, string> => {
+    if (statusFilters.length === 0) return {};
+    return { status: statusFilters.join(',') };
+  }, [statusFilters]);
   const fetchTasks = useCallback(
     async (params: Record<string, string>) => mapPaginatedList<Task>('tasks', await api.getTasks(params)),
     []
@@ -103,7 +117,11 @@ export default function TasksPage() {
     limit,
     loading: listLoading,
     reload,
-  } = usePaginatedList({ fetchList: fetchTasks });
+  } = usePaginatedList({
+    fetchList: fetchTasks,
+    extraParams: taskExtraParams,
+    enabled: statusFilters.length > 0,
+  });
   const [clients, setClients] = useState<Client[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [employees, setEmployees] = useState<User[]>([]);
@@ -214,6 +232,12 @@ export default function TasksPage() {
     }
   }
 
+  function toggleStatusFilter(status: TaskStatus) {
+    setStatusFilters((prev) =>
+      prev.includes(status) ? prev.filter((value) => value !== status) : [...prev, status]
+    );
+  }
+
   async function handleConfirmDelete() {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -263,6 +287,29 @@ export default function TasksPage() {
             page={page}
             limit={limit}
             loading={listLoading}
+            filters={
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-muted">Status</span>
+                <div className="inline-flex flex-wrap gap-1.5 rounded-xl border border-border bg-brand-50/80 p-1">
+                  {TASK_STATUSES.map((status) => {
+                    const active = statusFilters.includes(status);
+                    const styles = TASK_STATUS_STYLES[status];
+                    return (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => toggleStatusFilter(status)}
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                          active ? styles.active : styles.inactive
+                        }`}
+                      >
+                        {taskStatusLabel(status)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            }
           />
 
           <Table
@@ -276,11 +323,15 @@ export default function TasksPage() {
               <EmptyTableRow
                 colSpan={employeeView ? 7 : 8}
                 message={
-                  search
-                    ? 'No tasks match your search.'
-                    : employeeView
-                      ? 'No tasks assigned to you yet.'
-                      : 'No tasks yet. Click Create Task to add one.'
+                  statusFilters.length === 0
+                    ? 'Select at least one status to show tasks.'
+                    : search
+                      ? 'No tasks match your search.'
+                      : statusFilters.length < TASK_STATUSES.length
+                        ? 'No tasks match the selected statuses.'
+                        : employeeView
+                          ? 'No tasks assigned to you yet.'
+                          : 'No tasks yet. Click Create Task to add one.'
                 }
               />
             ) : (
