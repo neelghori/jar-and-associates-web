@@ -69,6 +69,7 @@ export interface Client {
   state?: string;
   stateCode?: string;
   placeOfSupply?: string;
+  reference?: string;
   isActive: boolean;
 }
 

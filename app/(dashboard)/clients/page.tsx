@@ -22,7 +22,7 @@ import type { Client } from '@/lib/types';
 
 const emptyForm = {
   name: '', address1: '', address2: '', gst: '', pan: '', tan: '',
-  mobile: '', email: '', state: '', stateCode: '', placeOfSupply: '',
+  mobile: '', email: '', state: '', stateCode: '', placeOfSupply: '', reference: '',
 };
 
 function clientToForm(client: Client) {
@@ -38,6 +38,7 @@ function clientToForm(client: Client) {
     state: client.state || '',
     stateCode: client.stateCode || '',
     placeOfSupply: client.placeOfSupply || '',
+    reference: client.reference || '',
   };
 }
 
@@ -158,17 +159,17 @@ export default function ClientsPage() {
           <TableToolbar
             search={search}
             onSearchChange={setSearch}
-            placeholder="Search by client ID, name, email, mobile, GST, PAN..."
+            placeholder="Search by client ID, name, reference, email, mobile, GST, PAN..."
             total={total}
             page={page}
             limit={limit}
             loading={listLoading}
           />
 
-          <Table headers={['Client ID', 'Name', 'Mobile', 'Email', 'GST', 'PAN', 'Actions']}>
+          <Table headers={['Client ID', 'Name', 'Reference', 'Mobile', 'Email', 'GST', 'PAN', 'Actions']}>
             {!listLoading && clients.length === 0 ? (
               <EmptyTableRow
-                colSpan={7}
+                colSpan={8}
                 message={search ? 'No clients match your search.' : 'No clients yet. Click Add Client to create one.'}
               />
             ) : (
@@ -176,6 +177,7 @@ export default function ClientsPage() {
                 <tr key={client._id} className="hover:bg-brand-50/50">
                   <td className="px-4 py-3 font-mono text-sm text-brand-700">{client.clientId || '—'}</td>
                   <td className="px-4 py-3 font-medium text-brand-800">{client.name}</td>
+                  <td className="px-4 py-3">{client.reference || '—'}</td>
                   <td className="px-4 py-3">{client.mobile || '—'}</td>
                   <td className="px-4 py-3">{client.email || '—'}</td>
                   <td className="px-4 py-3">{client.gst || '—'}</td>
@@ -213,6 +215,7 @@ export default function ClientsPage() {
               <Input label="Client ID" value={editing.clientId} disabled />
             )}
             <Input label="Client Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            <Input label="Reference (optional)" value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} />
             <Input label="Mobile (optional)" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} />
             <div className="space-y-4 sm:col-span-2">
               <Input label="Address Line 1" value={form.address1} onChange={(e) => setForm({ ...form, address1: e.target.value })} required />
