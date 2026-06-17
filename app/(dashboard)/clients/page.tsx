@@ -1,8 +1,9 @@
 'use client';
 
-import { FormEvent, useCallback, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { FileSpreadsheet, Plus } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
+import { exportClientsToExcel } from '@/lib/exportClientsExcel';
 import { CompanyRequired } from '@/components/CompanyRequired';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Modal } from '@/components/Modal';
@@ -67,6 +68,19 @@ export default function ClientsPage() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  const selectedCount = selectedIds.size;
+  const pageAllSelected = clients.length > 0 && clients.every((client) => selectedIds.has(client._id));
+  const pageSomeSelected = clients.some((client) => selectedIds.has(client._id)) && !pageAllSelected;
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = pageSomeSelected;
+    }
+  }, [pageSomeSelected, clients]);
 
   function openCreate() {
     setEditing(null);
@@ -121,12 +135,89 @@ export default function ClientsPage() {
     }
   }
 
+  function toggleClientSelection(clientId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(clientId)) next.delete(clientId);
+      else next.add(clientId);
+      return next;
+    });
+  }
+
+  function togglePageSelection() {
+    const pageIds = clients.map((client) => client._id);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (pageAllSelected) pageIds.forEach((id) => next.delete(id));
+      else pageIds.forEach((id) => next.add(id));
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
+
+  async function fetchAllClients() {
+    const res = await api.getClients();
+    return (res.clients as Client[]) ?? [];
+  }
+
+  async function handleExportAllExcel() {
+    setError('');
+    setSuccess('');
+    setExporting(true);
+    try {
+      const allClients = await fetchAllClients();
+      if (allClients.length === 0) {
+        setError('No clients available to export');
+        return;
+      }
+      exportClientsToExcel(allClients);
+      setSuccess(`Exported all ${allClients.length} client${allClients.length === 1 ? '' : 's'} to Excel`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to export clients');
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleExportSelectedExcel() {
+    if (selectedCount === 0) {
+      setError('Select at least one client to export, or use Export All');
+      return;
+    }
+
+    setError('');
+    setSuccess('');
+    setExporting(true);
+    try {
+      const allClients = await fetchAllClients();
+      const toExport = allClients.filter((client) => selectedIds.has(client._id));
+      if (toExport.length === 0) {
+        setError('Selected clients could not be found');
+        return;
+      }
+      exportClientsToExcel(toExport);
+      setSuccess(`Exported ${toExport.length} selected client${toExport.length === 1 ? '' : 's'} to Excel`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to export clients');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   async function handleConfirmDelete() {
     if (!deleteTarget) return;
     setDeleting(true);
     setError('');
     try {
       await api.deleteClient(deleteTarget._id);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(deleteTarget._id);
+        return next;
+      });
       setSuccess('Client deleted successfully');
       setDeleteTarget(null);
       await reload();
@@ -143,12 +234,30 @@ export default function ClientsPage() {
       <div>
         <PageHeader
           title="Clients"
-          subtitle="Browse, edit, or remove clients. Deleting asks for confirmation once."
+          subtitle="Export all clients or selected ones to Excel. Browse, edit, or remove clients from the list."
           action={
-            <Button onClick={openCreate}>
-              <Plus className="h-4 w-4" />
-              Add Client
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                onClick={handleExportAllExcel}
+                disabled={exporting || listLoading || total === 0}
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                {exporting ? 'Exporting...' : 'Export All'}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleExportSelectedExcel}
+                disabled={exporting || listLoading || selectedCount === 0}
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                Export Selected{selectedCount > 0 ? ` (${selectedCount})` : ''}
+              </Button>
+              <Button onClick={openCreate}>
+                <Plus className="h-4 w-4" />
+                Add Client
+              </Button>
+            </div>
           }
         />
 
@@ -164,17 +273,59 @@ export default function ClientsPage() {
             page={page}
             limit={limit}
             loading={listLoading}
+            action={
+              selectedCount > 0 ? (
+                <Button type="button" variant="ghost" onClick={clearSelection}>
+                  Clear selection ({selectedCount})
+                </Button>
+              ) : undefined
+            }
           />
 
-          <Table headers={['Client ID', 'Name', 'Reference', 'Mobile', 'Email', 'GST', 'PAN', 'Actions']}>
+          <Table
+            headers={[
+              <input
+                key="select-all"
+                ref={selectAllRef}
+                type="checkbox"
+                checked={pageAllSelected}
+                onChange={togglePageSelection}
+                disabled={listLoading || clients.length === 0}
+                aria-label="Select all clients on this page"
+                className="h-4 w-4 rounded border-border accent-brand-900"
+              />,
+              'Client ID',
+              'Name',
+              'Reference',
+              'Mobile',
+              'Email',
+              'GST',
+              'PAN',
+              'Actions',
+            ]}
+          >
             {!listLoading && clients.length === 0 ? (
               <EmptyTableRow
-                colSpan={8}
+                colSpan={9}
                 message={search ? 'No clients match your search.' : 'No clients yet. Click Add Client to create one.'}
               />
             ) : (
-              clients.map((client) => (
-                <tr key={client._id} className="hover:bg-brand-50/50">
+              clients.map((client) => {
+                const selected = selectedIds.has(client._id);
+                return (
+                <tr
+                  key={client._id}
+                  className={`hover:bg-brand-50/50 ${selected ? 'bg-brand-50/40' : ''}`}
+                >
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => toggleClientSelection(client._id)}
+                      aria-label={`Select ${client.name}`}
+                      className="h-4 w-4 rounded border-border accent-brand-900"
+                    />
+                  </td>
                   <td className="px-4 py-3 font-mono text-sm text-brand-700">{client.clientId || '—'}</td>
                   <td className="px-4 py-3 font-medium text-brand-800">{client.name}</td>
                   <td className="px-4 py-3">{client.reference || '—'}</td>
@@ -189,7 +340,8 @@ export default function ClientsPage() {
                     />
                   </td>
                 </tr>
-              ))
+              );
+              })
             )}
           </Table>
           <Pagination

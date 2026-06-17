@@ -158,14 +158,14 @@ export function Alert({ message, type = 'error' }: { message: string; type?: 'er
   return <div className={`rounded-lg border px-4 py-3 text-sm ${styles}`}>{message}</div>;
 }
 
-export function Table({ headers, children }: { headers: string[]; children: ReactNode }) {
+export function Table({ headers, children }: { headers: ReactNode[]; children: ReactNode }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-border shadow-[0_2px_16px_rgba(0,0,0,0.04)]">
       <table className="min-w-full text-sm">
         <thead className="table-head text-left">
           <tr>
-            {headers.map((h) => (
-              <th key={h} className="px-4 py-3.5 font-semibold text-brand-900">
+            {headers.map((h, index) => (
+              <th key={typeof h === 'string' ? h : `col-${index}`} className="px-4 py-3.5 font-semibold text-brand-900">
                 {h}
               </th>
             ))}

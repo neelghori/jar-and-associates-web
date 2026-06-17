@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  BarChart3,
   ClipboardList,
   FileText,
   LayoutDashboard,
@@ -58,6 +59,12 @@ const links: NavLink[] = [
     href: '/invoices',
     label: 'Invoices',
     icon: FileText,
+    show: (role) => role === 'superadmin',
+  },
+  {
+    href: '/reports',
+    label: 'Reports',
+    icon: BarChart3,
     show: (role) => role === 'superadmin',
   },
   {
