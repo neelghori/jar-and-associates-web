@@ -1,4 +1,5 @@
 import type { PlatformBillingOverview } from '@/lib/platformBilling';
+import { trackApiLoading } from '@/lib/api-loading';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -38,6 +39,14 @@ export function setStoredUser(user: unknown) {
 }
 
 async function request<T>(
+  path: string,
+  options: RequestInit = {},
+  auth = true
+): Promise<T> {
+  return trackApiLoading(executeRequest<T>(path, options, auth));
+}
+
+async function executeRequest<T>(
   path: string,
   options: RequestInit = {},
   auth = true
@@ -263,12 +272,16 @@ export function subCompanyLogoUrl(id: string) {
 }
 
 export async function fetchSubCompanyLogoBlob(id: string) {
-  const token = getToken();
-  const res = await fetch(subCompanyLogoUrl(id), {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) return null;
-  return res.blob();
+  return trackApiLoading(
+    (async () => {
+      const token = getToken();
+      const res = await fetch(subCompanyLogoUrl(id), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) return null;
+      return res.blob();
+    })()
+  );
 }
 
 export function subCompanySignatureUrl(id: string) {
@@ -276,41 +289,51 @@ export function subCompanySignatureUrl(id: string) {
 }
 
 export async function fetchSubCompanySignatureBlob(id: string) {
-  const token = getToken();
-  const res = await fetch(subCompanySignatureUrl(id), {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) return null;
-  return res.blob();
+  return trackApiLoading(
+    (async () => {
+      const token = getToken();
+      const res = await fetch(subCompanySignatureUrl(id), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) return null;
+      return res.blob();
+    })()
+  );
 }
 
 export async function openTaskAttachment(taskId: string) {
-  const token = getToken();
-  const res = await fetch(`${API_URL}/tasks/${taskId}/attachment`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new ApiError((data as { message?: string }).message || 'Failed to open attachment', res.status);
-  }
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  window.open(url, '_blank', 'noopener,noreferrer');
-  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  return trackApiLoading(
+    (async () => {
+      const token = getToken();
+      const res = await fetch(`${API_URL}/tasks/${taskId}/attachment`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new ApiError((data as { message?: string }).message || 'Failed to open attachment', res.status);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    })()
+  );
 }
 
 export function downloadInvoice(id: string, filename: string) {
   const token = getToken();
-  fetch(`${API_URL}/invoices/${id}/pdf`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then((res) => res.blob())
-    .then((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-    });
+  trackApiLoading(
+    fetch(`${API_URL}/invoices/${id}/pdf`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.blob())
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      })
+  );
 }

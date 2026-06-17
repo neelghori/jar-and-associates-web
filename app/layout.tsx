@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { AuthProvider } from '@/lib/auth-context';
+import { GlobalApiLoader } from '@/components/GlobalApiLoader';
 import './globals.css';
 
 const inter = Inter({
@@ -27,7 +28,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
       <body className="h-full overflow-x-hidden bg-background text-foreground">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <GlobalApiLoader />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
