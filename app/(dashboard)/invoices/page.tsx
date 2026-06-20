@@ -91,15 +91,31 @@ function toDateInput(iso: string) {
   return iso.slice(0, 10);
 }
 
+function formatMilestoneDate(value: string) {
+  const datePart = value.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+    const [y, m, d] = datePart.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('en-IN');
+  }
+  return new Date(value).toLocaleDateString('en-IN');
+}
+
 export default function InvoicesPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [subCompanies, setSubCompanies] = useState<SubCompany[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [companyFilter, setCompanyFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const invoiceExtraParams = useMemo((): Record<string, string> => {
-    if (!companyFilter) return {};
-    return { subCompanyId: companyFilter };
-  }, [companyFilter]);
+    const params: Record<string, string> = {};
+    if (companyFilter) params.subCompanyId = companyFilter;
+    if (dateFrom) params.fromDate = dateFrom;
+    if (dateTo) params.toDate = dateTo;
+    if (statusFilter) params.paymentStatus = statusFilter;
+    return params;
+  }, [companyFilter, dateFrom, dateTo, statusFilter]);
   const fetchInvoices = useCallback(
     async (params: Record<string, string>) =>
       mapPaginatedList<Invoice>('invoices', await api.getInvoices(params)),
@@ -114,9 +130,20 @@ export default function InvoicesPage() {
     total,
     totalPages,
     limit,
+    setLimit,
     loading: listLoading,
     reload: reloadInvoices,
   } = usePaginatedList({ fetchList: fetchInvoices, extraParams: invoiceExtraParams });
+  const hasInvoiceFilters = Boolean(search.trim() || companyFilter || dateFrom || dateTo || statusFilter);
+
+  function clearInvoiceFilters() {
+    setSearch('');
+    setDateFrom('');
+    setDateTo('');
+    setStatusFilter('');
+    setCompanyFilter('');
+  }
+
   const [showForm, setShowForm] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [editing, setEditing] = useState<Invoice | null>(null);
@@ -132,6 +159,10 @@ export default function InvoicesPage() {
   const [lineOrders, setLineOrders] = useState<LineOrders>({});
   const [invoiceDate, setInvoiceDate] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [reimbursementDescription, setReimbursementDescription] = useState('');
+  const [reimbursementAmount, setReimbursementAmount] = useState('');
+  const [editReimbursementDescription, setEditReimbursementDescription] = useState('');
+  const [editReimbursementAmount, setEditReimbursementAmount] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -180,23 +211,25 @@ export default function InvoicesPage() {
     setLineOrders({});
   }, [clientId]);
 
-  const invoiceTotal = useMemo(
-    () =>
-      selectedTasks.reduce((sum, id) => {
-        const amount = parseFloat(lineAmounts[id] || '0');
-        return sum + (Number.isFinite(amount) ? amount : 0);
-      }, 0),
-    [selectedTasks, lineAmounts]
-  );
+  const invoiceTotal = useMemo(() => {
+    const tasksTotal = selectedTasks.reduce((sum, id) => {
+      const amount = parseFloat(lineAmounts[id] || '0');
+      return sum + (Number.isFinite(amount) ? amount : 0);
+    }, 0);
+    const reimbursement = parseFloat(reimbursementAmount || '0');
+    return tasksTotal + (Number.isFinite(reimbursement) ? reimbursement : 0);
+  }, [selectedTasks, lineAmounts, reimbursementAmount]);
 
-  const editTotal = useMemo(
-    () =>
-      editLines.reduce((sum, line) => {
-        const amount = parseFloat(line.amount || '0');
-        return sum + (Number.isFinite(amount) ? amount : 0);
-      }, 0),
-    [editLines]
-  );
+  const reimbursementRequired = selectedTasks.length === 0;
+
+  const editTotal = useMemo(() => {
+    const linesTotal = editLines.reduce((sum, line) => {
+      const amount = parseFloat(line.amount || '0');
+      return sum + (Number.isFinite(amount) ? amount : 0);
+    }, 0);
+    const reimbursement = parseFloat(editReimbursementAmount || '0');
+    return linesTotal + (Number.isFinite(reimbursement) ? reimbursement : 0);
+  }, [editLines, editReimbursementAmount]);
 
   function toggleTask(id: string) {
     setSelectedTasks((prev) => {
@@ -275,6 +308,10 @@ export default function InvoicesPage() {
           order: String(index + 1),
         }))
       );
+      setEditReimbursementDescription(inv.reimbursementDescription || '');
+      setEditReimbursementAmount(
+        inv.reimbursementAmount && inv.reimbursementAmount > 0 ? String(inv.reimbursementAmount) : ''
+      );
       setShowEdit(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load invoice');
@@ -287,14 +324,16 @@ export default function InvoicesPage() {
     setShowEdit(false);
     setEditing(null);
     setEditLines([]);
+    setEditReimbursementDescription('');
+    setEditReimbursementAmount('');
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
     setSuccess('');
-    if (!clientId || selectedTasks.length === 0) {
-      setError('Select a client and at least one completed task');
+    if (!clientId) {
+      setError('Select a client');
       return;
     }
     if (!invoiceNumber.trim()) {
@@ -306,19 +345,55 @@ export default function InvoicesPage() {
       return;
     }
 
-    const orderedTaskIds = sortTaskIdsByOrder(selectedTasks, lineOrders);
-    if (orderedTaskIds.some((id) => !lineOrders[id]?.trim())) {
-      setError('Enter an order number (1, 2, 3…) for each selected task');
+    const normalizedReimbursementDescription = reimbursementDescription.trim();
+    const normalizedReimbursementAmount = parseFloat(reimbursementAmount || '0');
+    const hasReimbursement =
+      Number.isFinite(normalizedReimbursementAmount) &&
+      normalizedReimbursementAmount > 0 &&
+      Boolean(normalizedReimbursementDescription);
+
+    if (selectedTasks.length === 0 && !hasReimbursement) {
+      setError('Select at least one completed task or add a reimbursement fee');
+      return;
+    }
+    if (selectedTasks.length === 0) {
+      if (!normalizedReimbursementDescription) {
+        setError('Reimbursement description is required when no tasks are selected');
+        return;
+      }
+      if (!Number.isFinite(normalizedReimbursementAmount) || normalizedReimbursementAmount <= 0) {
+        setError('Enter a valid reimbursement amount when no tasks are selected');
+        return;
+      }
+    } else if (normalizedReimbursementAmount > 0 && !normalizedReimbursementDescription) {
+      setError('Reimbursement description is required when amount is provided');
+      return;
+    } else if (normalizedReimbursementDescription && (!Number.isFinite(normalizedReimbursementAmount) || normalizedReimbursementAmount <= 0)) {
+      setError('Enter a valid reimbursement amount');
       return;
     }
 
-    const lineItems = orderedTaskIds.map((taskId) => {
-      const amount = parseFloat(lineAmounts[taskId] || '');
-      return { taskId, amount };
-    });
+    let lineItems: Array<{ taskId: string; amount: number }> = [];
+    if (selectedTasks.length > 0) {
+      const orderedTaskIds = sortTaskIdsByOrder(selectedTasks, lineOrders);
+      if (orderedTaskIds.some((id) => !lineOrders[id]?.trim())) {
+        setError('Enter an order number (1, 2, 3…) for each selected task');
+        return;
+      }
 
-    if (lineItems.some((item) => !Number.isFinite(item.amount) || item.amount < 0)) {
-      setError('Enter a valid amount (₹) for each selected task');
+      lineItems = orderedTaskIds.map((taskId) => {
+        const amount = parseFloat(lineAmounts[taskId] || '');
+        return { taskId, amount };
+      });
+
+      if (lineItems.some((item) => !Number.isFinite(item.amount) || item.amount < 0)) {
+        setError('Enter a valid amount (₹) for each selected task');
+        return;
+      }
+    }
+
+    if (invoiceTotal <= 0) {
+      setError('Invoice total must be greater than zero');
       return;
     }
 
@@ -330,6 +405,8 @@ export default function InvoicesPage() {
         invoiceNumber: invoiceNumber.trim(),
         lineItems,
         invoiceDate: invoiceDate || undefined,
+        reimbursementDescription: hasReimbursement ? normalizedReimbursementDescription : undefined,
+        reimbursementAmount: hasReimbursement ? normalizedReimbursementAmount : undefined,
       });
       setSuccess('Invoice generated successfully');
       setSelectedTasks([]);
@@ -339,6 +416,8 @@ export default function InvoicesPage() {
       setSubCompanyId('');
       setInvoiceDate('');
       setInvoiceNumber('');
+      setReimbursementDescription('');
+      setReimbursementAmount('');
       setShowForm(false);
       setTasks([]);
       setSelectedTasks([]);
@@ -356,29 +435,63 @@ export default function InvoicesPage() {
     setError('');
     setSuccess('');
 
-    if (editLines.some((line) => !line.order.trim())) {
-      setError('Enter an order number (1, 2, 3…) for each line item');
+    const normalizedEditReimbursementDescription = editReimbursementDescription.trim();
+    const normalizedEditReimbursementAmount = parseFloat(editReimbursementAmount || '0');
+    const hasEditReimbursement =
+      Number.isFinite(normalizedEditReimbursementAmount) &&
+      normalizedEditReimbursementAmount > 0 &&
+      Boolean(normalizedEditReimbursementDescription);
+
+    if (editLines.length === 0 && !hasEditReimbursement) {
+      setError('Invoice must include at least one task line or a reimbursement fee');
+      return;
+    }
+    if (normalizedEditReimbursementAmount > 0 && !normalizedEditReimbursementDescription) {
+      setError('Reimbursement description is required when amount is provided');
+      return;
+    }
+    if (normalizedEditReimbursementDescription && (!Number.isFinite(normalizedEditReimbursementAmount) || normalizedEditReimbursementAmount <= 0)) {
+      setError('Enter a valid reimbursement amount');
       return;
     }
 
-    const sortedLines = sortEditLinesByOrder(editLines);
-    const lineItems = sortedLines.map((line) => ({
-      taskId: line.taskId,
-      description: line.description.trim(),
-      sacCode: line.sacCode.trim() || undefined,
-      amount: parseFloat(line.amount || ''),
-    }));
+    let lineItems: Array<{
+      taskId: string;
+      description: string;
+      sacCode?: string;
+      amount: number;
+    }> = [];
 
-    if (lineItems.some((item) => !item.description)) {
-      setError('Each line item needs a description');
-      return;
+    if (editLines.length > 0) {
+      if (editLines.some((line) => !line.order.trim())) {
+        setError('Enter an order number (1, 2, 3…) for each line item');
+        return;
+      }
+
+      const sortedLines = sortEditLinesByOrder(editLines);
+      lineItems = sortedLines.map((line) => ({
+        taskId: line.taskId,
+        description: line.description.trim(),
+        sacCode: line.sacCode.trim() || undefined,
+        amount: parseFloat(line.amount || ''),
+      }));
+
+      if (lineItems.some((item) => !item.description)) {
+        setError('Each line item needs a description');
+        return;
+      }
+      if (lineItems.some((item) => !Number.isFinite(item.amount) || item.amount < 0)) {
+        setError('Enter a valid amount (₹) for each line item');
+        return;
+      }
+      if (editLines.some((line) => !isValidSac(line.sacCode))) {
+        setError('SAC code must be 4–6 digits when provided');
+        return;
+      }
     }
-    if (lineItems.some((item) => !Number.isFinite(item.amount) || item.amount < 0)) {
-      setError('Enter a valid amount (₹) for each line item');
-      return;
-    }
-    if (editLines.some((line) => !isValidSac(line.sacCode))) {
-      setError('SAC code must be 4–6 digits when provided');
+
+    if (editTotal <= 0) {
+      setError('Invoice total must be greater than zero');
       return;
     }
 
@@ -388,6 +501,8 @@ export default function InvoicesPage() {
         invoiceDate: editInvoiceDate,
         issuanceDate: editIssuanceDate,
         lineItems,
+        reimbursementDescription: hasEditReimbursement ? normalizedEditReimbursementDescription : '',
+        reimbursementAmount: hasEditReimbursement ? normalizedEditReimbursementAmount : 0,
       });
       setSuccess('Invoice updated and PDF regenerated');
       closeEdit();
@@ -476,8 +591,9 @@ export default function InvoicesPage() {
     setError('');
   }
 
-  async function refreshPaymentState(invoice: Invoice) {
-    applyPaymentInvoice(invoice);
+  async function refreshPaymentState(invoiceId: string) {
+    const fresh = await api.getInvoice(invoiceId);
+    applyPaymentInvoice(fresh.invoice as Invoice);
     await refreshInvoiceData();
   }
 
@@ -509,12 +625,14 @@ export default function InvoicesPage() {
     setPaymentLoading(true);
     setError('');
     try {
-      const res = editingMilestoneId
-        ? await api.updatePaymentMilestone(paymentTarget._id, editingMilestoneId, payload)
-        : await api.addPaymentMilestone(paymentTarget._id, payload);
+      if (editingMilestoneId) {
+        await api.updatePaymentMilestone(paymentTarget._id, editingMilestoneId, payload);
+      } else {
+        await api.addPaymentMilestone(paymentTarget._id, payload);
+      }
       setSuccess(editingMilestoneId ? 'Milestone updated' : 'Milestone recorded');
       setPaymentTab('history');
-      await refreshPaymentState(res.invoice as Invoice);
+      await refreshPaymentState(paymentTarget._id);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to save milestone');
     } finally {
@@ -527,10 +645,10 @@ export default function InvoicesPage() {
     setPaymentLoading(true);
     setError('');
     try {
-      const res = await api.deletePaymentMilestone(paymentTarget._id, milestoneId);
+      await api.deletePaymentMilestone(paymentTarget._id, milestoneId);
       setSuccess('Milestone removed');
       if (editingMilestoneId === milestoneId) cancelMilestoneEdit();
-      await refreshPaymentState(res.invoice as Invoice);
+      await refreshPaymentState(paymentTarget._id);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to delete milestone');
     } finally {
@@ -540,12 +658,23 @@ export default function InvoicesPage() {
 
   async function handleMarkFullyPaid() {
     if (!paymentTarget || paymentPending <= 0) return;
+    if (!milestoneForm.receivedDate) {
+      setError('Select a received date');
+      return;
+    }
+
     setPaymentLoading(true);
     setError('');
     try {
-      const res = await api.recordInvoicePayment(paymentTarget._id, { markFullyPaid: true });
-      setSuccess('Full payment milestone added');
-      await refreshPaymentState(res.invoice as Invoice);
+      await api.addPaymentMilestone(paymentTarget._id, {
+        label: milestoneForm.label.trim() || 'Full payment',
+        amount: paymentPending,
+        receivedDate: milestoneForm.receivedDate,
+        note: milestoneForm.note.trim() || undefined,
+      });
+      setSuccess('Full payment recorded');
+      setPaymentTab('history');
+      await refreshPaymentState(paymentTarget._id);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to mark fully paid');
     } finally {
@@ -560,7 +689,12 @@ export default function InvoicesPage() {
           title="Invoices"
           subtitle="Generate, edit, or delete invoices. Editing regenerates the PDF. Deleting frees tasks to invoice again."
           action={
-            <Button onClick={() => { setShowForm(true); setError(''); }}>
+            <Button onClick={() => {
+              setShowForm(true);
+              setError('');
+              setReimbursementDescription('');
+              setReimbursementAmount('');
+            }}>
               <Plus className="h-4 w-4" />
               Generate Invoice
             </Button>
@@ -584,25 +718,58 @@ export default function InvoicesPage() {
             limit={limit}
             loading={listLoading}
             filters={
-              subCompanies.length > 0 ? (
-                <div className="relative w-full shrink-0 sm:w-56">
-                  <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                  <select
-                    value={companyFilter}
-                    onChange={(e) => setCompanyFilter(e.target.value)}
-                    aria-label="Filter by company"
-                    className="h-10 w-full appearance-none rounded-lg border border-border bg-white py-2 pl-10 pr-8 text-sm text-brand-900 outline-none transition focus:border-brand-900 focus:ring-4 focus:ring-brand-900/10"
-                  >
-                    <option value="">All companies</option>
-                    {subCompanies.map((sc) => (
-                      <option key={sc.id} value={sc.id}>
-                        {sc.name}
-                      </option>
-                    ))}
-                    <option value="__none__">No company assigned</option>
-                  </select>
-                </div>
-              ) : undefined
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  aria-label="Invoice date from"
+                  className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-brand-900 outline-none transition focus:border-brand-900 focus:ring-4 focus:ring-brand-900/10 sm:w-[148px]"
+                />
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  aria-label="Invoice date to"
+                  min={dateFrom || undefined}
+                  className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-brand-900 outline-none transition focus:border-brand-900 focus:ring-4 focus:ring-brand-900/10 sm:w-[148px]"
+                />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  aria-label="Filter by payment status"
+                  className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-brand-900 outline-none transition focus:border-brand-900 focus:ring-4 focus:ring-brand-900/10 sm:w-36"
+                >
+                  <option value="">All statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="partial">Partial</option>
+                  <option value="paid">Paid</option>
+                </select>
+                {subCompanies.length > 0 && (
+                  <div className="relative w-full shrink-0 sm:w-56">
+                    <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                    <select
+                      value={companyFilter}
+                      onChange={(e) => setCompanyFilter(e.target.value)}
+                      aria-label="Filter by company"
+                      className="h-10 w-full appearance-none rounded-lg border border-border bg-white py-2 pl-10 pr-8 text-sm text-brand-900 outline-none transition focus:border-brand-900 focus:ring-4 focus:ring-brand-900/10"
+                    >
+                      <option value="">All companies</option>
+                      {subCompanies.map((sc) => (
+                        <option key={sc.id} value={sc.id}>
+                          {sc.name}
+                        </option>
+                      ))}
+                      <option value="__none__">No company assigned</option>
+                    </select>
+                  </div>
+                )}
+                {hasInvoiceFilters && (
+                  <Button type="button" variant="ghost" onClick={clearInvoiceFilters}>
+                    Clear filters
+                  </Button>
+                )}
+              </div>
             }
           />
 
@@ -623,7 +790,7 @@ export default function InvoicesPage() {
               <EmptyTableRow
                 colSpan={9}
                 message={
-                  search || companyFilter
+                  hasInvoiceFilters
                     ? 'No invoices match your filters.'
                     : 'No invoices yet. Click Generate Invoice to create one.'
                 }
@@ -636,7 +803,7 @@ export default function InvoicesPage() {
                     {typeof invoice.subCompany === 'object' ? invoice.subCompany.name : '—'}
                   </td>
                   <td className="px-4 py-3">{typeof invoice.client === 'object' ? invoice.client.name : '—'}</td>
-                  <td className="px-4 py-3">{new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}</td>
+                  <td className="px-4 py-3">{formatMilestoneDate(invoice.invoiceDate)}</td>
                   <td className="px-4 py-3">
                     <MoneyAmount amount={invoice.total} />
                   </td>
@@ -693,6 +860,7 @@ export default function InvoicesPage() {
             total={total}
             limit={limit}
             onPageChange={setPage}
+            onLimitChange={setLimit}
             disabled={listLoading}
           />
         </Card>
@@ -701,7 +869,7 @@ export default function InvoicesPage() {
           open={showForm}
           onClose={() => setShowForm(false)}
           title="Generate Invoice"
-          description="Select the company, enter the invoice number, pick completed tasks, and enter SAC code and amount for each line."
+          description="Select the company, enter the invoice number, pick completed tasks (optional), and add reimbursement fee if needed."
           size="lg"
         >
           {error && <div className="mb-4"><Alert message={error} /></div>}
@@ -744,7 +912,7 @@ export default function InvoicesPage() {
 
             {clientId && (
               <div>
-                <p className="mb-2 text-sm font-medium text-brand-800">Completed tasks (not yet invoiced)</p>
+                <p className="mb-2 text-sm font-medium text-brand-800">Completed tasks (optional)</p>
                 <div className="max-h-72 space-y-3 overflow-y-auto rounded-xl border border-border p-3">
                   {tasks.length === 0 && (
                     <p className="text-sm text-muted">No completed tasks ready to invoice for this client.</p>
@@ -794,6 +962,31 @@ export default function InvoicesPage() {
                 </div>
               </div>
             )}
+
+            <div className="rounded-xl border border-border p-4">
+              <p className="mb-3 text-sm font-medium text-brand-800">
+                Reimbursement fee{reimbursementRequired ? ' (required without tasks)' : ' (optional)'}
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input
+                  label="Description"
+                  value={reimbursementDescription}
+                  onChange={(e) => setReimbursementDescription(e.target.value)}
+                  placeholder="e.g. Travel reimbursement"
+                  required={reimbursementRequired}
+                />
+                <Input
+                  label="Amount (₹)"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={reimbursementAmount}
+                  onChange={(e) => setReimbursementAmount(e.target.value)}
+                  placeholder="0.00"
+                  required={reimbursementRequired}
+                />
+              </div>
+            </div>
 
             {selectedTasks.length > 0 && (
               <div>
@@ -873,6 +1066,9 @@ export default function InvoicesPage() {
                 Set order as 1, 2, 3… for each line. The PDF uses this sequence for SN numbers.
               </p>
               <div className="space-y-3">
+                {editLines.length === 0 && (
+                  <p className="text-sm text-muted">No task line items on this invoice.</p>
+                )}
                 {editLines.map((line, index) => (
                   <div key={line.taskId} className="rounded-lg border border-border p-3">
                     <p className="mb-2 text-sm font-medium text-brand-800">
@@ -928,6 +1124,27 @@ export default function InvoicesPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border p-4">
+              <p className="mb-3 text-sm font-medium text-brand-800">Reimbursement fee (optional)</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input
+                  label="Description"
+                  value={editReimbursementDescription}
+                  onChange={(e) => setEditReimbursementDescription(e.target.value)}
+                  placeholder="e.g. Travel reimbursement"
+                />
+                <Input
+                  label="Amount (₹)"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={editReimbursementAmount}
+                  onChange={(e) => setEditReimbursementAmount(e.target.value)}
+                  placeholder="0.00"
+                />
               </div>
             </div>
 
@@ -1043,7 +1260,7 @@ export default function InvoicesPage() {
                                 {index + 1}. {milestone.label}
                               </p>
                               <p className="mt-1 text-xs text-muted">
-                                {new Date(milestone.receivedDate).toLocaleDateString('en-IN')}
+                                {formatMilestoneDate(milestone.receivedDate)}
                                 {milestone.note ? ` · ${milestone.note}` : ''}
                               </p>
                             </div>

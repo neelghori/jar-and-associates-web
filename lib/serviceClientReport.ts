@@ -126,12 +126,52 @@ export function flattenServiceClientReport(groups: ServiceClientReportGroup[]): 
   return groups.flatMap((group) => group.clients);
 }
 
-export function filterServiceClientReport(
+export function filterServiceClientReportGroups(
   groups: ServiceClientReportGroup[],
-  selectedServiceIds: Set<string>
+  options: { serviceIds?: string[]; clientIds?: string[] },
+  services: { _id: string; name: string; sacCode?: string }[] = []
 ): ServiceClientReportGroup[] {
-  if (selectedServiceIds.size === 0) return [];
-  return groups
-    .filter((group) => selectedServiceIds.has(group.serviceId))
-    .map((group) => ({ ...group }));
+  const serviceIds = options.serviceIds?.filter(Boolean) ?? [];
+  const clientIds = options.clientIds?.filter(Boolean) ?? [];
+
+  let result = groups;
+
+  if (serviceIds.length > 0) {
+    result = result.filter((group) => serviceIds.includes(group.serviceId));
+  }
+
+  result = result
+    .map((group) => {
+      const clients =
+        clientIds.length > 0
+          ? group.clients.filter((row) => clientIds.includes(row.clientDbId))
+          : group.clients;
+      const taskCount = clients.reduce((sum, row) => sum + row.taskCount, 0);
+      return {
+        ...group,
+        clients,
+        clientCount: clients.length,
+        taskCount,
+      };
+    })
+    .filter((group) => serviceIds.length > 0 || group.clientCount > 0);
+
+  if (serviceIds.length > 0) {
+    const existing = new Set(result.map((group) => group.serviceId));
+    for (const serviceId of serviceIds) {
+      if (existing.has(serviceId)) continue;
+      const service = services.find((item) => item._id === serviceId);
+      result.push({
+        serviceId,
+        serviceName: service?.name || 'Unknown Service',
+        sacCode: service?.sacCode || '',
+        clients: [],
+        clientCount: 0,
+        taskCount: 0,
+      });
+    }
+    result.sort((a, b) => a.serviceName.localeCompare(b.serviceName, 'en', { sensitivity: 'base' }));
+  }
+
+  return result;
 }

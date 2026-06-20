@@ -74,6 +74,7 @@ export default function SubCompaniesPage() {
     total,
     totalPages,
     limit,
+    setLimit,
     loading: listLoading,
     reload,
   } = usePaginatedList({ fetchList: fetchSubCompanies });
@@ -364,6 +365,7 @@ export default function SubCompaniesPage() {
             total={total}
             limit={limit}
             onPageChange={setPage}
+            onLimitChange={setLimit}
             disabled={listLoading}
           />
         </Card>

@@ -36,6 +36,7 @@ export default function ServicesPage() {
     total,
     totalPages,
     limit,
+    setLimit,
     loading: listLoading,
     reload,
   } = usePaginatedList({ fetchList: fetchServices });
@@ -79,14 +80,14 @@ export default function ServicesPage() {
     setSuccess('');
 
     const normalizedSac = normalizeSacInput(sacCode);
-    if (!isValidSac(normalizedSac)) {
-      setError('SAC code must be 4–6 digits');
+    if (normalizedSac && !isValidSac(normalizedSac)) {
+      setError('SAC code must be 4–6 digits when provided');
       return;
     }
 
     setLoading(true);
     try {
-      const payload = { name, sacCode: normalizedSac };
+      const payload = { name, sacCode: normalizedSac || '' };
       if (editing) {
         await api.updateService(editing._id, payload);
         setSuccess('Service updated successfully');
@@ -174,6 +175,7 @@ export default function ServicesPage() {
             total={total}
             limit={limit}
             onPageChange={setPage}
+            onLimitChange={setLimit}
             disabled={listLoading}
           />
         </Card>
@@ -182,18 +184,17 @@ export default function ServicesPage() {
           open={showForm}
           onClose={closeForm}
           title={editing ? 'Edit Service' : 'Add Service'}
-          description="Each service has a SAC code that appears on invoice line items."
+          description="Optionally add a SAC code that appears on invoice line items for this service."
         >
           {error && <div className="mb-4"><Alert message={error} /></div>}
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input label="Service Name" value={name} onChange={(e) => setName(e.target.value)} required />
             <Input
-              label="SAC Code"
+              label="SAC Code (optional)"
               value={sacCode}
               onChange={(e) => setSacCode(normalizeSacInput(e.target.value))}
               placeholder="e.g. 9982"
               maxLength={6}
-              required
             />
             <div className="flex gap-3 pt-2">
               <Button type="button" variant="secondary" className="flex-1" onClick={closeForm}>Cancel</Button>

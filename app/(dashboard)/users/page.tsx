@@ -31,6 +31,7 @@ export default function UsersPage() {
     total,
     totalPages,
     limit,
+    setLimit,
     loading: listLoading,
     reload,
   } = usePaginatedList({ fetchList: fetchUsers, enabled: canManage });
@@ -236,6 +237,7 @@ export default function UsersPage() {
           total={total}
           limit={limit}
           onPageChange={setPage}
+          onLimitChange={setLimit}
           disabled={listLoading}
         />
       </Card>

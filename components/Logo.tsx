@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 type LogoProps = {
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
-  /** Invert logo to white on dark backgrounds — no white box */
+  /** White letterforms on dark backgrounds; original green A accent is preserved */
   onDark?: boolean;
   /** Center the logo horizontally in its container */
   centered?: boolean;
@@ -21,8 +21,62 @@ const heights = {
   '2xl': 120,
 } as const;
 
-/** JAR wordmark aspect ratio (~830 × 287) */
+/** Wordmark slot aspect ratio; PNGs are 1024 × 1024 with the mark letterboxed inside */
 const LOGO_ASPECT = 830 / 287;
+
+const logoImageProps = {
+  src: '/jar-logo.png',
+  unoptimized: true as const,
+};
+
+const logoDarkImageProps = {
+  src: '/jar-logo-dark-square.png',
+  unoptimized: true as const,
+};
+
+function JarLogoImage({
+  height,
+  width,
+  onDark,
+  priority,
+  objectClass,
+  alt,
+}: {
+  height: number;
+  width: number;
+  onDark: boolean;
+  priority?: boolean;
+  objectClass: string;
+  alt: string;
+}) {
+  const sizeStyle = { height, width };
+
+  if (!onDark) {
+    return (
+      <Image
+        {...logoImageProps}
+        alt={alt}
+        width={width}
+        height={height}
+        priority={priority}
+        className={`block object-contain ${objectClass}`}
+        style={sizeStyle}
+      />
+    );
+  }
+
+  return (
+    <Image
+      {...logoDarkImageProps}
+      alt={alt}
+      width={width}
+      height={height}
+      priority={priority}
+      className={`block object-contain ${objectClass}`}
+      style={sizeStyle}
+    />
+  );
+}
 
 export function Logo({
   size = 'md',
@@ -34,17 +88,16 @@ export function Logo({
 }: LogoProps) {
   const height = heights[size];
   const width = Math.round(height * LOGO_ASPECT);
+  const objectClass = centered ? 'object-center' : 'object-left';
 
   const image = (
-    <Image
-      src="/jar-logo.png"
-      alt="JAR — Billing Suite"
-      width={width}
+    <JarLogoImage
       height={height}
+      width={width}
+      onDark={onDark}
       priority={priority}
-      unoptimized
-      className={`block object-contain ${centered ? 'object-center' : 'object-left'} ${onDark ? 'brightness-0 invert' : ''} ${className}`}
-      style={{ height, width }}
+      objectClass={`${objectClass} ${className}`.trim()}
+      alt="JAR — Billing Suite"
     />
   );
 
@@ -83,14 +136,12 @@ export function LogoMark({
 
   const content = (
     <div className={`inline-flex shrink-0 items-center justify-center ${className}`}>
-      <Image
-        src="/jar-logo.png"
-        alt="JAR"
-        width={width}
+      <JarLogoImage
         height={height}
-        unoptimized
-        className={`block object-contain ${onDark ? 'brightness-0 invert' : ''}`}
-        style={{ height, width }}
+        width={width}
+        onDark={onDark}
+        objectClass="object-left"
+        alt="JAR"
       />
     </div>
   );

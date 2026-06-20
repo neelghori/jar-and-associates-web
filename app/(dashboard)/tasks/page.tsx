@@ -115,6 +115,7 @@ export default function TasksPage() {
     total,
     totalPages,
     limit,
+    setLimit,
     loading: listLoading,
     reload,
   } = usePaginatedList({
@@ -390,6 +391,7 @@ export default function TasksPage() {
             total={total}
             limit={limit}
             onPageChange={setPage}
+            onLimitChange={setLimit}
             disabled={listLoading}
           />
         </Card>

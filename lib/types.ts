@@ -133,6 +133,8 @@ export interface Invoice {
   }>;
   subtotal: number;
   total: number;
+  reimbursementDescription?: string;
+  reimbursementAmount?: number;
   paidAmount?: number;
   pendingAmount?: number;
   paymentMilestones?: PaymentMilestone[];

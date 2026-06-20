@@ -223,9 +223,18 @@ export const api = {
       totalReceived: number;
       totalPending: number;
       totalInvoiced: number;
+      totalReimbursement: number;
+      totalReimbursementPending: number;
+      totalReimbursementReceived: number;
       invoiceCount: number;
       byStatus: { paid: number; partial: number; pending: number };
-      monthly: Array<{ month: string; label: string; received: number; pending: number }>;
+      monthly: Array<{
+        month: string;
+        label: string;
+        received: number;
+        pending: number;
+        reimbursementPending: number;
+      }>;
     }>('/invoices/payment-summary'),
   recordInvoicePayment: (
     id: string,

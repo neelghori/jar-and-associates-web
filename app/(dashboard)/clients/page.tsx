@@ -12,6 +12,7 @@ import { Pagination } from '@/components/Pagination';
 import { EmptyTableRow, TableToolbar } from '@/components/TableToolbar';
 import { usePaginatedList } from '@/hooks/usePaginatedList';
 import { mapPaginatedList } from '@/lib/listApi';
+import { DEFAULT_PAGE_SIZE, normalizePageSize } from '@/lib/pagination';
 import {
   normalizeTaxPayload,
   TAX_ID_HINTS,
@@ -19,7 +20,9 @@ import {
   validateOptionalTaxIds,
 } from '@/lib/indianTaxIds';
 import { Alert, Button, Card, Input, PageHeader, Table, Textarea } from '@/components/ui';
-import type { Client } from '@/lib/types';
+import { formatDisplayDate } from '@/lib/dates';
+import { TASK_STATUS_STYLES, normalizeTaskStatus, taskStatusLabel } from '@/lib/taskStatus';
+import type { Client, Task } from '@/lib/types';
 
 const emptyForm = {
   name: '', address1: '', address2: '', gst: '', pan: '', tan: '',
@@ -57,6 +60,7 @@ export default function ClientsPage() {
     total,
     totalPages,
     limit,
+    setLimit,
     loading: listLoading,
     reload,
   } = usePaginatedList({ fetchList: fetchClients });
@@ -70,6 +74,14 @@ export default function ClientsPage() {
   const [deleting, setDeleting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [viewTarget, setViewTarget] = useState<Client | null>(null);
+  const [clientTasks, setClientTasks] = useState<Task[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [tasksError, setTasksError] = useState('');
+  const [tasksPage, setTasksPage] = useState(1);
+  const [tasksLimit, setTasksLimit] = useState(DEFAULT_PAGE_SIZE);
+  const [tasksTotal, setTasksTotal] = useState(0);
+  const [tasksTotalPages, setTasksTotalPages] = useState(1);
   const selectAllRef = useRef<HTMLInputElement>(null);
 
   const selectedCount = selectedIds.size;
@@ -81,6 +93,48 @@ export default function ClientsPage() {
       selectAllRef.current.indeterminate = pageSomeSelected;
     }
   }, [pageSomeSelected, clients]);
+
+  function handleTasksLimitChange(nextLimit: number) {
+    setTasksPage(1);
+    setTasksLimit(normalizePageSize(nextLimit));
+  }
+
+  useEffect(() => {
+    if (!viewTarget) return;
+
+    const clientId = viewTarget._id;
+    let cancelled = false;
+
+    async function loadClientTasks() {
+      setTasksLoading(true);
+      setTasksError('');
+      try {
+        const res = await api.getTasks({
+          clientId,
+          page: String(tasksPage),
+          limit: String(tasksLimit),
+        });
+        if (cancelled) return;
+        const mapped = mapPaginatedList<Task>('tasks', res);
+        setClientTasks(mapped.items);
+        setTasksTotal(mapped.total);
+        setTasksTotalPages(mapped.totalPages);
+      } catch (err) {
+        if (cancelled) return;
+        setTasksError(err instanceof ApiError ? err.message : 'Failed to load client tasks');
+        setClientTasks([]);
+        setTasksTotal(0);
+        setTasksTotalPages(1);
+      } finally {
+        if (!cancelled) setTasksLoading(false);
+      }
+    }
+
+    loadClientTasks();
+    return () => {
+      cancelled = true;
+    };
+  }, [viewTarget, tasksPage, tasksLimit]);
 
   function openCreate() {
     setEditing(null);
@@ -94,6 +148,24 @@ export default function ClientsPage() {
     setForm(clientToForm(client));
     setError('');
     setShowForm(true);
+  }
+
+  function openViewTasks(client: Client) {
+    setTasksError('');
+    setClientTasks([]);
+    setTasksTotal(0);
+    setTasksTotalPages(1);
+    setTasksPage(1);
+    setViewTarget(client);
+  }
+
+  function closeViewTasks() {
+    setViewTarget(null);
+    setClientTasks([]);
+    setTasksError('');
+    setTasksPage(1);
+    setTasksTotal(0);
+    setTasksTotalPages(1);
   }
 
   function closeForm() {
@@ -335,6 +407,7 @@ export default function ClientsPage() {
                   <td className="px-4 py-3">{client.pan || '—'}</td>
                   <td className="px-4 py-3">
                     <RowActions
+                      onView={() => openViewTasks(client)}
                       onEdit={() => openEdit(client)}
                       onDelete={() => setDeleteTarget(client)}
                     />
@@ -350,6 +423,7 @@ export default function ClientsPage() {
             total={total}
             limit={limit}
             onPageChange={setPage}
+            onLimitChange={setLimit}
             disabled={listLoading}
           />
         </Card>
@@ -406,6 +480,85 @@ export default function ClientsPage() {
               <Button type="submit" className="flex-1" disabled={loading}>{loading ? 'Saving...' : editing ? 'Update Client' : 'Save Client'}</Button>
             </div>
           </form>
+        </Modal>
+
+        <Modal
+          open={!!viewTarget}
+          onClose={closeViewTasks}
+          title={viewTarget ? `Tasks — ${viewTarget.name}` : 'Client tasks'}
+          description={
+            viewTarget
+              ? `${viewTarget.clientId ? `${viewTarget.clientId} · ` : ''}All tasks linked to this client`
+              : ''
+          }
+          size="xl"
+        >
+          {tasksError && (
+            <div className="mb-4">
+              <Alert message={tasksError} />
+            </div>
+          )}
+          {tasksLoading ? (
+            <p className="py-12 text-center text-sm text-muted">Loading tasks...</p>
+          ) : (
+            <Table headers={['Task', 'Service', 'Start', 'Due', 'Status', 'Invoiced']}>
+              {clientTasks.length === 0 ? (
+                <EmptyTableRow colSpan={6} message="No tasks for this client yet." />
+              ) : (
+                clientTasks.map((task) => {
+                  const status = normalizeTaskStatus(task.status);
+                  return (
+                    <tr key={task._id} className="hover:bg-brand-50/50">
+                      <td className="px-4 py-3 font-medium text-brand-800">{task.taskName}</td>
+                      <td className="px-4 py-3">
+                        {typeof task.service === 'object' ? task.service.name : '—'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        {formatDisplayDate(task.startDate)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        {formatDisplayDate(task.endDate)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                            TASK_STATUS_STYLES[status].badge
+                          }`}
+                        >
+                          {taskStatusLabel(task.status)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {task.isInvoiced ? (
+                          <span className="inline-flex rounded-full border border-brand-200 bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700">
+                            Yes
+                          </span>
+                        ) : (
+                          <span className="text-sm text-muted">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </Table>
+          )}
+          {!tasksLoading && tasksTotal > 0 && (
+            <Pagination
+              page={tasksPage}
+              totalPages={tasksTotalPages}
+              total={tasksTotal}
+              limit={tasksLimit}
+              onPageChange={setTasksPage}
+              onLimitChange={handleTasksLimitChange}
+              disabled={tasksLoading}
+            />
+          )}
+          <div className="mt-4 flex justify-end">
+            <Button type="button" variant="secondary" onClick={closeViewTasks}>
+              Close
+            </Button>
+          </div>
         </Modal>
 
         <ConfirmDialog

@@ -6,6 +6,9 @@ export type InvoicePaymentSummary = {
   totalReceived: number;
   totalPending: number;
   totalInvoiced: number;
+  totalReimbursement: number;
+  totalReimbursementPending: number;
+  totalReimbursementReceived: number;
   invoiceCount: number;
   byStatus: { paid: number; partial: number; pending: number };
   monthly: Array<{
@@ -13,6 +16,7 @@ export type InvoicePaymentSummary = {
     label: string;
     received: number;
     pending: number;
+    reimbursementPending: number;
   }>;
 };
 

@@ -84,23 +84,23 @@ export function Sidebar() {
   const visibleLinks = links.filter((link) => !link.show || link.show(role));
 
   return (
-    <aside className="sticky top-0 flex h-dvh w-72 shrink-0 flex-col border-r border-white/10 bg-brand-900 text-white">
-      <div className="shrink-0 border-b border-white/10 px-5 py-5">
-        <Logo size="xl" onDark href={getHomePath(user)} priority />
-        <p className="mt-2 text-xs font-bold uppercase tracking-[0.22em] text-accent-500">
+    <aside className="sticky top-0 flex h-dvh w-56 shrink-0 flex-col border-r border-white/10 bg-brand-900 text-white">
+      <div className="shrink-0 border-b border-white/10 px-4 py-4">
+        <Logo size="lg" onDark href={getHomePath(user)} priority />
+        <p className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-accent-500">
           {isPlatformAdmin(user) ? 'Platform Admin' : employeeView ? 'My Tasks' : 'Billing Suite'}
         </p>
       </div>
 
-      <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
-        <div className="space-y-1">
+      <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2.5">
+        <div className="space-y-0.5">
           {visibleLinks.map(({ href, label, icon: Icon }) => {
             const active = pathname === href;
             return (
               <Link
                 key={`${href}-${label}`}
                 href={href}
-                className={`flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition ${
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
                   active
                     ? 'sidebar-link-active'
                     : 'text-neutral-400 hover:bg-white/5 hover:text-white'
@@ -114,7 +114,7 @@ export function Sidebar() {
         </div>
       </nav>
 
-      <div className="relative z-20 shrink-0 border-t border-white/10 p-3">
+      <div className="relative z-20 shrink-0 border-t border-white/10 p-2.5">
         <ProfileMenu variant="sidebar" />
         <div className="mt-2 flex items-center gap-2 px-1 text-[11px] text-neutral-600">
           <Settings2 className="h-3.5 w-3.5 shrink-0" />

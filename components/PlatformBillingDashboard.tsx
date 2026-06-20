@@ -126,6 +126,7 @@ export function PlatformBillingDashboard() {
     total,
     totalPages,
     limit,
+    setLimit,
     loading,
   } = usePaginatedList<PlatformCompanyBilling>({ fetchList: fetchCompanies });
 
@@ -187,6 +188,7 @@ export function PlatformBillingDashboard() {
               total={total}
               limit={limit}
               onPageChange={setPage}
+              onLimitChange={setLimit}
               disabled={loading}
             />
           </div>

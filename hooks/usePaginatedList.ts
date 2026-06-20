@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { DEFAULT_PAGE_SIZE } from '@/lib/pagination';
+import { DEFAULT_PAGE_SIZE, normalizePageSize } from '@/lib/pagination';
 
 type ListResult<T> = {
   items: T[];
@@ -30,6 +30,7 @@ export function usePaginatedList<T>({
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [limit, setLimitState] = useState(() => normalizePageSize(pageSize));
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -46,6 +47,20 @@ export function usePaginatedList<T>({
     () => JSON.parse(extraKey) as Record<string, string>,
     [extraKey]
   );
+
+  const limitRef = useRef(limit);
+
+  useEffect(() => {
+    limitRef.current = limit;
+  }, [limit]);
+
+  const setLimit = useCallback((nextLimit: number) => {
+    const normalized = normalizePageSize(nextLimit);
+    if (normalized === limitRef.current) return;
+    limitRef.current = normalized;
+    setLimitState(normalized);
+    setPage(1);
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -78,7 +93,7 @@ export function usePaginatedList<T>({
     try {
       const params: Record<string, string> = {
         page: String(page),
-        limit: String(pageSize),
+        limit: String(limit),
         ...parsedExtraParams,
       };
       if (search.trim()) params.search = search.trim();
@@ -103,7 +118,7 @@ export function usePaginatedList<T>({
       setInitialLoading(false);
       setRefreshing(false);
     }
-  }, [enabled, page, pageSize, search, extraKey, fetchList, parsedExtraParams]);
+  }, [enabled, page, limit, search, extraKey, fetchList, parsedExtraParams]);
 
   useEffect(() => {
     load();
@@ -117,7 +132,8 @@ export function usePaginatedList<T>({
     setPage,
     total,
     totalPages,
-    limit: pageSize,
+    limit,
+    setLimit,
     loading: initialLoading,
     refreshing,
     reload: load,

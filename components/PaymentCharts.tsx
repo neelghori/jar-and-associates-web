@@ -26,6 +26,8 @@ export function PaymentCharts({ summary }: PaymentChartsProps) {
     ...months.map((m) => m.received + m.pending)
   );
 
+  const totalReimbursement = summary.totalReimbursement ?? 0;
+
   return (
     <div className="mb-6 grid gap-5 lg:grid-cols-5">
       <Card className="lg:col-span-2">
@@ -75,6 +77,12 @@ export function PaymentCharts({ summary }: PaymentChartsProps) {
               <span className="text-xs font-medium text-muted">Pending</span>
               <MoneyAmount amount={summary.totalPending} variant="pending" />
             </div>
+            {totalReimbursement > 0 && (
+              <div className="flex items-center justify-between gap-6 border-l-2 border-violet-200 pl-3">
+                <span className="text-xs font-medium text-muted">Reimbursement fee (total)</span>
+                <MoneyAmount amount={totalReimbursement} className="text-violet-700" />
+              </div>
+            )}
             <div className="flex items-center justify-between gap-6 border-t border-border pt-3">
               <span className="text-xs font-semibold text-brand-800">Total invoiced</span>
               <MoneyAmount amount={summary.totalInvoiced} />
