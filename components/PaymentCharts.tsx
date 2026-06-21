@@ -7,11 +7,13 @@ import { Card } from '@/components/ui';
 
 type PaymentChartsProps = {
   summary: InvoicePaymentSummary;
+  /** When true, totals reflect active invoice list filters */
+  filtered?: boolean;
 };
 
 const CHART_HEIGHT = 160;
 
-export function PaymentCharts({ summary }: PaymentChartsProps) {
+export function PaymentCharts({ summary, filtered = false }: PaymentChartsProps) {
   const total = Math.max(summary.totalInvoiced, 0);
   const receivedPct = total > 0 ? (summary.totalReceived / total) * 100 : 0;
   const pendingPct = total > 0 ? (summary.totalPending / total) * 100 : 0;
@@ -23,16 +25,19 @@ export function PaymentCharts({ summary }: PaymentChartsProps) {
 
   const monthMax = Math.max(
     1,
-    ...months.map((m) => m.received + m.pending)
+    ...months.map((m) => m.received + m.pending + (m.reimbursement ?? 0))
   );
 
   const totalReimbursement = summary.totalReimbursement ?? 0;
+  const netInvoiced = summary.totalInvoiced - totalReimbursement;
 
   return (
     <div className="mb-6 grid gap-5 lg:grid-cols-5">
       <Card className="lg:col-span-2">
         <h3 className="text-sm font-semibold text-brand-800">Payment overview</h3>
-        <p className="mt-0.5 text-xs text-muted">Received vs pending across all invoices</p>
+        <p className="mt-0.5 text-xs text-muted">
+          {filtered ? 'Received vs pending for filtered invoices' : 'Received vs pending across all invoices'}
+        </p>
 
         <div className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1 sm:max-w-[55%]">
@@ -87,6 +92,10 @@ export function PaymentCharts({ summary }: PaymentChartsProps) {
               <span className="text-xs font-semibold text-brand-800">Total invoiced</span>
               <MoneyAmount amount={summary.totalInvoiced} />
             </div>
+            <div className="flex items-center justify-between gap-6">
+              <span className="text-xs font-medium text-muted">Net invoiced</span>
+              <MoneyAmount amount={netInvoiced} className="text-brand-800" />
+            </div>
             <p className="text-[11px] text-muted">
               {summary.byStatus.paid} paid · {summary.byStatus.partial} partial ·{' '}
               {summary.byStatus.pending} pending
@@ -97,7 +106,9 @@ export function PaymentCharts({ summary }: PaymentChartsProps) {
 
       <Card className="lg:col-span-3">
         <h3 className="text-sm font-semibold text-brand-800">Monthly trend</h3>
-        <p className="mt-0.5 text-xs text-muted">By invoice date (last {months.length} month(s))</p>
+        <p className="mt-0.5 text-xs text-muted">
+          {filtered ? 'Filtered by invoice date' : 'By invoice date'} (last {months.length} month(s))
+        </p>
 
         {months.length === 0 ? (
           <p className="py-16 text-center text-sm text-muted">No invoice data to chart yet.</p>
@@ -108,28 +119,42 @@ export function PaymentCharts({ summary }: PaymentChartsProps) {
               style={{ minHeight: CHART_HEIGHT + 28 }}
             >
               {months.map((m) => {
-                const monthTotal = m.received + m.pending;
+                const reimbursement = m.reimbursement ?? 0;
+                const monthTotal = m.received + m.pending + reimbursement;
                 const recH = Math.max(monthTotal > 0 ? (m.received / monthMax) * CHART_HEIGHT : 0, m.received > 0 ? 6 : 0);
                 const penH = Math.max(monthTotal > 0 ? (m.pending / monthMax) * CHART_HEIGHT : 0, m.pending > 0 ? 6 : 0);
+                const reimbH = Math.max(
+                  monthTotal > 0 ? (reimbursement / monthMax) * CHART_HEIGHT : 0,
+                  reimbursement > 0 ? 6 : 0
+                );
                 return (
                   <div
                     key={m.month}
-                    className="flex min-w-[64px] max-w-[100px] flex-1 flex-col items-center"
+                    className="flex min-w-[72px] max-w-[112px] flex-1 flex-col items-center"
                   >
                     <div
-                      className="flex w-full max-w-[72px] items-end justify-center gap-1.5"
+                      className="flex w-full max-w-[88px] items-end justify-center gap-1"
                       style={{ height: CHART_HEIGHT }}
                     >
-                      <div className="flex w-6 flex-col items-center justify-end" title={`Received ${formatInr(m.received)}`}>
+                      <div className="flex w-5 flex-col items-center justify-end" title={`Received ${formatInr(m.received)}`}>
                         <div
                           className="w-full rounded-t-md bg-accent-500 transition-all"
                           style={{ height: recH }}
                         />
                       </div>
-                      <div className="flex w-6 flex-col items-center justify-end" title={`Pending ${formatInr(m.pending)}`}>
+                      <div className="flex w-5 flex-col items-center justify-end" title={`Pending ${formatInr(m.pending)}`}>
                         <div
                           className="w-full rounded-t-md bg-amber-500 transition-all"
                           style={{ height: penH }}
+                        />
+                      </div>
+                      <div
+                        className="flex w-5 flex-col items-center justify-end"
+                        title={`Reimbursement ${formatInr(reimbursement)}`}
+                      >
+                        <div
+                          className="w-full rounded-t-md bg-violet-500 transition-all"
+                          style={{ height: reimbH }}
                         />
                       </div>
                     </div>
@@ -141,7 +166,7 @@ export function PaymentCharts({ summary }: PaymentChartsProps) {
                 );
               })}
             </div>
-            <div className="mt-4 flex justify-center gap-6 border-t border-border pt-3 text-xs text-muted">
+            <div className="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-2 border-t border-border pt-3 text-xs text-muted">
               <span className="flex items-center gap-1.5">
                 <span className="h-2.5 w-3 rounded-sm bg-accent-500" />
                 Received
@@ -149,6 +174,10 @@ export function PaymentCharts({ summary }: PaymentChartsProps) {
               <span className="flex items-center gap-1.5">
                 <span className="h-2.5 w-3 rounded-sm bg-amber-500" />
                 Pending
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-3 rounded-sm bg-violet-500" />
+                Reimbursement
               </span>
             </div>
           </>

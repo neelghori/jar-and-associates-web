@@ -218,8 +218,9 @@ export const api = {
       `/invoices${query}`
     );
   },
-  getInvoicePaymentSummary: () =>
-    request<{
+  getInvoicePaymentSummary: (params?: Record<string, string>) => {
+    const query = params ? `?${new URLSearchParams(params)}` : '';
+    return request<{
       totalReceived: number;
       totalPending: number;
       totalInvoiced: number;
@@ -233,9 +234,11 @@ export const api = {
         label: string;
         received: number;
         pending: number;
+        reimbursement: number;
         reimbursementPending: number;
       }>;
-    }>('/invoices/payment-summary'),
+    }>(`/invoices/payment-summary${query}`);
+  },
   recordInvoicePayment: (
     id: string,
     body: { amount?: number; paidAmount?: number; markFullyPaid?: boolean }

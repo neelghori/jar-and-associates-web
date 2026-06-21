@@ -16,6 +16,7 @@ export type InvoicePaymentSummary = {
     label: string;
     received: number;
     pending: number;
+    reimbursement: number;
     reimbursementPending: number;
   }>;
 };

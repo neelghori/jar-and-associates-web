@@ -21,6 +21,8 @@ import {
   type InvoicePaymentSummary,
 } from '@/lib/invoicePayment';
 import { Alert, Button, Card, Input, PageHeader, Select, Table } from '@/components/ui';
+import { SearchableSelect } from '@/components/SearchableSelect';
+import { clientSelectOptions } from '@/lib/clientDisplay';
 import type { Client, Company, Invoice, PaymentMilestone, SubCompany, Task } from '@/lib/types';
 
 type MilestoneForm = {
@@ -136,6 +138,23 @@ export default function InvoicesPage() {
   } = usePaginatedList({ fetchList: fetchInvoices, extraParams: invoiceExtraParams });
   const hasInvoiceFilters = Boolean(search.trim() || companyFilter || dateFrom || dateTo || statusFilter);
 
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const summaryFilterParams = useMemo((): Record<string, string> => {
+    const params: Record<string, string> = { ...invoiceExtraParams };
+    if (debouncedSearch) params.search = debouncedSearch;
+    return params;
+  }, [invoiceExtraParams, debouncedSearch]);
+
+  const summaryFilterKey = useMemo(
+    () => JSON.stringify(summaryFilterParams),
+    [summaryFilterParams]
+  );
+
   function clearInvoiceFilters() {
     setSearch('');
     setDateFrom('');
@@ -173,14 +192,19 @@ export default function InvoicesPage() {
   const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
   const [paymentTab, setPaymentTab] = useState<'record' | 'history'>('record');
   const [paymentLoading, setPaymentLoading] = useState(false);
-
-  async function loadPaymentSummary() {
-    const summaryRes = await api.getInvoicePaymentSummary();
-    setPaymentSummary(summaryRes);
-  }
+  const loadPaymentSummary = useCallback(async (params: Record<string, string>) => {
+    try {
+      const summaryRes = await api.getInvoicePaymentSummary(
+        Object.keys(params).length ? params : undefined
+      );
+      setPaymentSummary(summaryRes);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
 
   async function refreshInvoiceData() {
-    await Promise.all([reloadInvoices(), loadPaymentSummary()]);
+    await Promise.all([reloadInvoices(), loadPaymentSummary(summaryFilterParams)]);
   }
 
   useEffect(() => {
@@ -188,8 +212,11 @@ export default function InvoicesPage() {
     api.getSubCompanies()
       .then((res) => setSubCompanies(res.subCompanies as SubCompany[]))
       .catch(console.error);
-    loadPaymentSummary().catch(console.error);
   }, []);
+
+  useEffect(() => {
+    loadPaymentSummary(summaryFilterParams).catch(console.error);
+  }, [summaryFilterKey, loadPaymentSummary]);
 
   useEffect(() => {
     if (!clientId) {
@@ -221,6 +248,8 @@ export default function InvoicesPage() {
   }, [selectedTasks, lineAmounts, reimbursementAmount]);
 
   const reimbursementRequired = selectedTasks.length === 0;
+
+  const clientOptions = useMemo(() => clientSelectOptions(clients), [clients]);
 
   const editTotal = useMemo(() => {
     const linesTotal = editLines.reduce((sum, line) => {
@@ -706,7 +735,9 @@ export default function InvoicesPage() {
           <div className="mb-4"><Alert message={error} /></div>
         )}
 
-        {paymentSummary && <PaymentCharts summary={paymentSummary} />}
+        {paymentSummary && (
+          <PaymentCharts summary={paymentSummary} filtered={hasInvoiceFilters} />
+        )}
 
         <Card>
           <TableToolbar
@@ -900,14 +931,16 @@ export default function InvoicesPage() {
                 No companies yet. Add them under Companies to bill under a specific firm.
               </div>
             )}
-            <Select label="Client" value={clientId} onChange={(e) => setClientId(e.target.value)} required>
-              <option value="">Select client</option>
-              {clients.map((c) => (
-                <option key={c._id} value={c._id}>
-                  {c.clientId ? `${c.clientId} — ${c.name}` : c.name}
-                </option>
-              ))}
-            </Select>
+            <SearchableSelect
+              label="Client"
+              value={clientId}
+              onChange={setClientId}
+              options={clientOptions}
+              required
+              searchPlaceholder="Search by client ID (e.g. CLI001) or name..."
+              placeholder="Select a client from the list"
+              emptyMessage="No clients match your search"
+            />
             <Input label="Invoice Date (optional)" type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} />
 
             {clientId && (
