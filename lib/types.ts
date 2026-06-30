@@ -70,6 +70,15 @@ export interface Client {
   stateCode?: string;
   placeOfSupply?: string;
   reference?: string;
+  group?: string | { _id: string; name: string };
+  groupId?: string | null;
+  isActive: boolean;
+}
+
+export interface Group {
+  _id: string;
+  company: string;
+  name: string;
   isActive: boolean;
 }
 

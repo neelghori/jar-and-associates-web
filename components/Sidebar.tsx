@@ -11,6 +11,7 @@ import {
   Users,
   Wrench,
   Building2,
+  Layers,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -41,6 +42,12 @@ const links: NavLink[] = [
     href: '/clients',
     label: 'Clients',
     icon: Users,
+    show: (role) => role === 'superadmin',
+  },
+  {
+    href: '/groups',
+    label: 'Groups',
+    icon: Layers,
     show: (role) => role === 'superadmin',
   },
   {

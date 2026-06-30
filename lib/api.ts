@@ -194,6 +194,19 @@ export const api = {
   deleteService: (id: string) =>
     request<{ message: string }>(`/services/${id}`, { method: 'DELETE' }),
 
+  getGroups: (params?: Record<string, string>) => {
+    const query = params ? `?${new URLSearchParams(params)}` : '';
+    return request<{ groups: unknown[]; total?: number; page?: number; limit?: number; totalPages?: number }>(
+      `/groups${query}`
+    );
+  },
+  createGroup: (body: unknown) =>
+    request<{ group: unknown }>('/groups', { method: 'POST', body: JSON.stringify(body) }),
+  updateGroup: (id: string, body: unknown) =>
+    request<{ group: unknown }>(`/groups/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteGroup: (id: string) =>
+    request<{ message: string }>(`/groups/${id}`, { method: 'DELETE' }),
+
   getTasks: (params?: Record<string, string>) => {
     const query = params ? `?${new URLSearchParams(params)}` : '';
     return request<{ tasks: unknown[]; total?: number; page?: number; limit?: number; totalPages?: number }>(

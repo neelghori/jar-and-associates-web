@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileSpreadsheet, Plus } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
 import { exportClientsToExcel } from '@/lib/exportClientsExcel';
@@ -19,15 +19,27 @@ import {
   TAX_ID_MAX_LENGTH,
   validateOptionalTaxIds,
 } from '@/lib/indianTaxIds';
-import { Alert, Button, Card, Input, PageHeader, Table, Textarea } from '@/components/ui';
+import { Alert, Button, Card, Input, PageHeader, Select, Table, Textarea } from '@/components/ui';
 import { formatDisplayDate } from '@/lib/dates';
 import { TASK_STATUS_STYLES, normalizeTaskStatus, taskStatusLabel } from '@/lib/taskStatus';
-import type { Client, Task } from '@/lib/types';
+import type { Client, Group, Task } from '@/lib/types';
 
 const emptyForm = {
   name: '', address1: '', address2: '', gst: '', pan: '', tan: '',
-  mobile: '', email: '', state: '', stateCode: '', placeOfSupply: '', reference: '',
+  mobile: '', groupId: '', email: '', state: '', stateCode: '', placeOfSupply: '', reference: '',
 };
+
+function groupIdFromClient(client: Client) {
+  if (client.groupId) return client.groupId;
+  if (client.group && typeof client.group === 'object') return client.group._id;
+  if (typeof client.group === 'string') return client.group;
+  return '';
+}
+
+function groupNameFromClient(client: Client) {
+  if (client.group && typeof client.group === 'object') return client.group.name;
+  return '—';
+}
 
 function clientToForm(client: Client) {
   return {
@@ -38,6 +50,7 @@ function clientToForm(client: Client) {
     pan: client.pan || '',
     tan: client.tan || '',
     mobile: client.mobile || '',
+    groupId: groupIdFromClient(client),
     email: client.email || '',
     state: client.state || '',
     stateCode: client.stateCode || '',
@@ -47,6 +60,11 @@ function clientToForm(client: Client) {
 }
 
 export default function ClientsPage() {
+  const [groupFilter, setGroupFilter] = useState('');
+  const clientExtraParams = useMemo((): Record<string, string> => {
+    if (!groupFilter) return {};
+    return { groupId: groupFilter };
+  }, [groupFilter]);
   const fetchClients = useCallback(
     async (params: Record<string, string>) => mapPaginatedList<Client>('clients', await api.getClients(params)),
     []
@@ -63,11 +81,12 @@ export default function ClientsPage() {
     setLimit,
     loading: listLoading,
     reload,
-  } = usePaginatedList({ fetchList: fetchClients });
+  } = usePaginatedList({ fetchList: fetchClients, extraParams: clientExtraParams });
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -93,6 +112,12 @@ export default function ClientsPage() {
       selectAllRef.current.indeterminate = pageSomeSelected;
     }
   }, [pageSomeSelected, clients]);
+
+  useEffect(() => {
+    api.getGroups()
+      .then((res) => setGroups((res.groups as Group[]) ?? []))
+      .catch(console.error);
+  }, []);
 
   function handleTasksLimitChange(nextLimit: number) {
     setTasksPage(1);
@@ -345,6 +370,22 @@ export default function ClientsPage() {
             page={page}
             limit={limit}
             loading={listLoading}
+            filters={
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-muted">Group</span>
+                <select
+                  value={groupFilter}
+                  onChange={(e) => setGroupFilter(e.target.value)}
+                  className="h-10 rounded-lg border border-border bg-white px-3 text-sm outline-none transition focus:border-brand-900 focus:ring-4 focus:ring-brand-900/10"
+                >
+                  <option value="">All groups</option>
+                  <option value="unassigned">No group</option>
+                  {groups.map((group) => (
+                    <option key={group._id} value={group._id}>{group.name}</option>
+                  ))}
+                </select>
+              </div>
+            }
             action={
               selectedCount > 0 ? (
                 <Button type="button" variant="ghost" onClick={clearSelection}>
@@ -369,6 +410,7 @@ export default function ClientsPage() {
               'Client ID',
               'Name',
               'Reference',
+              'Group',
               'Mobile',
               'Email',
               'GST',
@@ -378,8 +420,14 @@ export default function ClientsPage() {
           >
             {!listLoading && clients.length === 0 ? (
               <EmptyTableRow
-                colSpan={9}
-                message={search ? 'No clients match your search.' : 'No clients yet. Click Add Client to create one.'}
+                colSpan={10}
+                message={
+                  search
+                    ? 'No clients match your search.'
+                    : groupFilter
+                      ? 'No clients match the selected group.'
+                      : 'No clients yet. Click Add Client to create one.'
+                }
               />
             ) : (
               clients.map((client) => {
@@ -401,6 +449,7 @@ export default function ClientsPage() {
                   <td className="px-4 py-3 font-mono text-sm text-brand-700">{client.clientId || '—'}</td>
                   <td className="px-4 py-3 font-medium text-brand-800">{client.name}</td>
                   <td className="px-4 py-3">{client.reference || '—'}</td>
+                  <td className="px-4 py-3">{groupNameFromClient(client)}</td>
                   <td className="px-4 py-3">{client.mobile || '—'}</td>
                   <td className="px-4 py-3">{client.email || '—'}</td>
                   <td className="px-4 py-3">{client.gst || '—'}</td>
@@ -443,6 +492,16 @@ export default function ClientsPage() {
             <Input label="Client Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
             <Input label="Reference (optional)" value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} />
             <Input label="Mobile (optional)" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} />
+            <Select
+              label="Group (optional)"
+              value={form.groupId}
+              onChange={(e) => setForm({ ...form, groupId: e.target.value })}
+            >
+              <option value="">Select group</option>
+              {groups.map((group) => (
+                <option key={group._id} value={group._id}>{group.name}</option>
+              ))}
+            </Select>
             <div className="space-y-4 sm:col-span-2">
               <Input label="Address Line 1" value={form.address1} onChange={(e) => setForm({ ...form, address1: e.target.value })} required />
               <Input label="Address Line 2 (optional)" value={form.address2} onChange={(e) => setForm({ ...form, address2: e.target.value })} />

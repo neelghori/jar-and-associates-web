@@ -98,10 +98,12 @@ export default function TasksPage() {
   const canManage = isCompanySuperadmin(user);
   const canAssign = canManage;
   const [statusFilters, setStatusFilters] = useState<TaskStatus[]>(DEFAULT_STATUS_FILTERS);
+  const [notBilledFilter, setNotBilledFilter] = useState(false);
   const taskExtraParams = useMemo((): Record<string, string> => {
+    if (notBilledFilter) return { invoiceable: 'true' };
     if (statusFilters.length === 0) return {};
     return { status: statusFilters.join(',') };
-  }, [statusFilters]);
+  }, [notBilledFilter, statusFilters]);
   const fetchTasks = useCallback(
     async (params: Record<string, string>) => mapPaginatedList<Task>('tasks', await api.getTasks(params)),
     []
@@ -121,7 +123,7 @@ export default function TasksPage() {
   } = usePaginatedList({
     fetchList: fetchTasks,
     extraParams: taskExtraParams,
-    enabled: statusFilters.length > 0,
+    enabled: notBilledFilter || statusFilters.length > 0,
   });
   const [clients, setClients] = useState<Client[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -234,9 +236,14 @@ export default function TasksPage() {
   }
 
   function toggleStatusFilter(status: TaskStatus) {
+    if (notBilledFilter) return;
     setStatusFilters((prev) =>
       prev.includes(status) ? prev.filter((value) => value !== status) : [...prev, status]
     );
+  }
+
+  function toggleNotBilledFilter() {
+    setNotBilledFilter((prev) => !prev);
   }
 
   async function handleConfirmDelete() {
@@ -289,26 +296,51 @@ export default function TasksPage() {
             limit={limit}
             loading={listLoading}
             filters={
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-muted">Status</span>
-                <div className="inline-flex flex-wrap gap-1.5 rounded-xl border border-border bg-brand-50/80 p-1">
-                  {TASK_STATUSES.map((status) => {
-                    const active = statusFilters.includes(status);
-                    const styles = TASK_STATUS_STYLES[status];
-                    return (
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium text-muted">Status</span>
+                  <div
+                    className={`inline-flex flex-wrap gap-1.5 rounded-xl border border-border bg-brand-50/80 p-1 ${
+                      notBilledFilter ? 'opacity-50' : ''
+                    }`}
+                  >
+                    {TASK_STATUSES.map((status) => {
+                      const active = !notBilledFilter && statusFilters.includes(status);
+                      const styles = TASK_STATUS_STYLES[status];
+                      return (
+                        <button
+                          key={status}
+                          type="button"
+                          onClick={() => toggleStatusFilter(status)}
+                          disabled={notBilledFilter}
+                          className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed ${
+                            active ? styles.active : styles.inactive
+                          }`}
+                        >
+                          {taskStatusLabel(status)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                {canManage && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-medium text-muted">Billing</span>
+                    <div className="inline-flex flex-wrap gap-1.5 rounded-xl border border-border bg-brand-50/80 p-1">
                       <button
-                        key={status}
                         type="button"
-                        onClick={() => toggleStatusFilter(status)}
+                        onClick={toggleNotBilledFilter}
                         className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
-                          active ? styles.active : styles.inactive
+                          notBilledFilter
+                            ? 'border-violet-600 bg-violet-600 text-white shadow-sm'
+                            : 'border-violet-200 bg-white text-violet-700 hover:bg-violet-50'
                         }`}
                       >
-                        {taskStatusLabel(status)}
+                        Not billed
                       </button>
-                    );
-                  })}
-                </div>
+                    </div>
+                  </div>
+                )}
               </div>
             }
           />
@@ -324,15 +356,19 @@ export default function TasksPage() {
               <EmptyTableRow
                 colSpan={employeeView ? 7 : 8}
                 message={
-                  statusFilters.length === 0
-                    ? 'Select at least one status to show tasks.'
-                    : search
-                      ? 'No tasks match your search.'
-                      : statusFilters.length < TASK_STATUSES.length
-                        ? 'No tasks match the selected statuses.'
-                        : employeeView
-                          ? 'No tasks assigned to you yet.'
-                          : 'No tasks yet. Click Create Task to add one.'
+                  notBilledFilter
+                    ? search
+                      ? 'No unbilled tasks match your search.'
+                      : 'No completed tasks awaiting invoice.'
+                    : statusFilters.length === 0
+                      ? 'Select at least one status to show tasks.'
+                      : search
+                        ? 'No tasks match your search.'
+                        : statusFilters.length < TASK_STATUSES.length
+                          ? 'No tasks match the selected statuses.'
+                          : employeeView
+                            ? 'No tasks assigned to you yet.'
+                            : 'No tasks yet. Click Create Task to add one.'
                 }
               />
             ) : (
